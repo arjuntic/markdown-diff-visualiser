@@ -3,8 +3,11 @@
 src/**
 !src/webview/**
 node_modules/**
+out/**
 .gitignore
 tsconfig.json
 **/*.ts
 **/*.map
 **/.git/**
+*.vsix
+test.md

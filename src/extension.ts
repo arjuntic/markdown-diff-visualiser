@@ -319,6 +319,34 @@ function handleWebviewMessage(context: vscode.ExtensionContext): (message: Webvi
         }
         break;
       }
+      case 'requestCommitSha': {
+        log('Received requestCommitSha from webview');
+        (async () => {
+          const sha = await vscode.window.showInputBox({
+            prompt: 'Enter a commit SHA or short hash',
+            placeHolder: 'e.g. abc1234 or HEAD~1',
+            validateInput: (value) => {
+              if (!value || value.trim().length === 0) {
+                return 'Please enter a commit reference';
+              }
+              return undefined;
+            },
+          });
+          if (sha) {
+            currentDiffMode = 'commit';
+            currentCommitSha = sha.trim();
+            log(`Commit mode selected with SHA: ${currentCommitSha}`);
+            if (currentFilePath) {
+              await runPipeline(currentFilePath, currentDiffMode, context, currentCommitSha);
+            }
+          }
+        })().catch((err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          log(`Error during commit SHA request: ${msg}`);
+          vscode.window.showErrorMessage(`Failed to load commit diff: ${msg}`);
+        });
+        break;
+      }
       default:
         break;
     }

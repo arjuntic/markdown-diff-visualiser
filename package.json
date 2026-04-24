@@ -11,9 +11,10 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onCommand:markdownDiffPreview.showChanges"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -23,6 +24,20 @@
     ],
     "menus": {
       "editor/context": [
+        {
+          "command": "markdownDiffPreview.showChanges",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "markdownDiffPreview.showChanges",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
         {
           "command": "markdownDiffPreview.showChanges",
           "when": "resourceLangId == markdown",
@@ -41,6 +56,8 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "package": "npm run bundle && npx @vscode/vsce package --allow-missing-repository",
     "test": "mocha --require ts-node/register 'src/test/**/*.test.ts' --timeout 10000"
   },
   "dependencies": {
@@ -60,6 +77,7 @@
     "@types/vscode": "^1.85.0",
     "@vscode/test-electron": "^2.4.1",
     "chai": "^4.4.1",
+    "esbuild": "^0.28.0",
     "fast-check": "^3.22.0",
     "mocha": "^10.7.0",
     "proxyquire": "^2.1.3",

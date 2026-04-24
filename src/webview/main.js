@@ -54,6 +54,11 @@
   }
 
   function switchMode(mode) {
+    if (mode === 'commit') {
+      // Ask the extension host to prompt for a commit SHA
+      vscode.postMessage({ type: 'requestCommitSha' });
+      return;
+    }
     currentMode = mode;
     // Update active button state
     var buttons = document.querySelectorAll('.diff-mode-btn:not(.refresh-btn)');

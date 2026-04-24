@@ -25,7 +25,7 @@ export interface PreviewData {
 }
 
 export interface WebviewMessage {
-  type: 'refresh' | 'switchMode' | 'scroll';
+  type: 'refresh' | 'switchMode' | 'scroll' | 'requestCommitSha';
   payload?: Record<string, unknown>;
 }
 
@@ -49,7 +49,7 @@ export function createPanelManager(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource};">
+    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:; media-src ${webview.cspSource} https:;">
   <link rel="stylesheet" href="${styleUri}">
   <title>Markdown Diff Preview</title>
 </head>
