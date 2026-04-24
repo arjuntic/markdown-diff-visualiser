@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+
+# Packaged extension
+*.vsix
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode-test/
+
+# Source maps
+*.js.map
+
+# Declaration files (generated)
+out/**/*.d.ts
