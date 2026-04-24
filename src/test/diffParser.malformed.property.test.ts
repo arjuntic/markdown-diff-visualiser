@@ -1,7 +1,7 @@
 /**
  * Property-Based Test: Malformed diff produces descriptive error
  *
- * Feature: markdown-diff-preview, Property 2: Malformed diff produces descriptive error
+ * Feature: markdown-diff-visualiser, Property 2: Malformed diff produces descriptive error
  *
  * For any string that is not a valid unified diff format, the Diff_Parser SHALL
  * return a descriptive error (or empty result) without throwing an unhandled exception.
@@ -13,7 +13,7 @@ import { expect } from 'chai';
 import * as fc from 'fast-check';
 import { parseDiff } from '../diffParser';
 
-describe('Feature: markdown-diff-preview, Property 2: Malformed diff produces descriptive error', function () {
+describe('Feature: markdown-diff-visualiser, Property 2: Malformed diff produces descriptive error', function () {
   this.timeout(60000);
 
   it('should never throw an unhandled exception for arbitrary string input', function () {

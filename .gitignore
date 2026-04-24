@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 out/
+dist/
 
 # Packaged extension
 *.vsix
@@ -13,9 +14,13 @@ Thumbs.db
 
 # Editor directories
 .vscode-test/
+.history/
 
 # Source maps
 *.js.map
 
 # Declaration files (generated)
 out/**/*.d.ts
+
+# Kiro configs
+.kiro/

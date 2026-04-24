@@ -1,34 +1,35 @@
-# Project Alpha — Technical Overview
+# Project Alpha — Technical Overview (v2.0)
 
-Project Alpha is a next-generation data processing platform designed for real-time analytics at scale. It handles ingestion, transformation, and visualization of streaming data from multiple sources.
+Project Alpha is a **cloud-native** data processing platform designed for real-time analytics at massive scale. It handles ingestion, transformation, visualization, and **machine learning inference** on streaming data from multiple sources.
 
 ## Architecture
 
 The system follows a microservices architecture with three main layers:
 
-1. **Ingestion Layer** — Receives data from Kafka, REST APIs, and WebSocket connections
-2. **Processing Layer** — Applies transformations, aggregations, and enrichment rules
+1. **Ingestion Layer** — Receives data from Kafka, REST APIs, WebSocket connections, and **gRPC streams**
+2. **Processing Layer** — Applies transformations, aggregations, enrichment rules, and **ML inference**
 3. **Presentation Layer** — Serves dashboards, reports, and API endpoints
+4. **Storage Layer** — Persists processed data to data lakes and warehouses
 
 ### Data Flow
 
 Raw events arrive through the ingestion gateway, get validated against a schema registry, and are routed to the appropriate processing pipeline. Each pipeline stage can be configured independently.
 
-> **Note:** The current throughput target is 50,000 events per second with a p99 latency under 200ms.
+> **Note:** The current throughput target is **100,000 events per second** with a p99 latency under 150ms. We exceeded our Q1 target by 2x.
 
 ### Architecture Diagram
 
-![System Architecture](https://raw.githubusercontent.com/mingrammer/diagrams/master/assets/img/diagrams.png)
+![System Architecture](https://raw.githubusercontent.com/donnemartin/system-design-primer/master/images/jrUBAF7.png)
 
-*Figure 1: High-level system architecture overview.*
+*Figure 1: Updated system architecture with the new storage layer.*
 
 ## Images & Media
 
 ### Photos
 
-![Mountain Landscape](https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop)
+![Northern Lights](https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=800&h=400&fit=crop)
 
-*Figure 2: Scenic mountain landscape — Photo by Unsplash.*
+*Figure 2: Aurora borealis — Photo by Unsplash.*
 
 ![Ocean Sunset](https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=400&fit=crop)
 
@@ -72,15 +73,15 @@ Here's a small icon: ![Octocat](https://github.githubassets.com/images/icons/emo
 
 ### YouTube Thumbnail with Link
 
-[![Watch the Demo](https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+[![Watch the Demo](https://img.youtube.com/vi/jNQXAC9IVRw/maxresdefault.jpg)](https://www.youtube.com/watch?v=jNQXAC9IVRw)
 
-*Click the thumbnail to watch the demo video on YouTube.*
+*Click the thumbnail to watch the first ever YouTube video.*
 
 ### Another Video Thumbnail
 
-[![Kubernetes Explained](https://img.youtube.com/vi/PziYflu8cB8/hqdefault.jpg)](https://www.youtube.com/watch?v=PziYflu8cB8)
+[![Kubernetes Explained](https://img.youtube.com/vi/X48VuDVv0do/hqdefault.jpg)](https://www.youtube.com/watch?v=X48VuDVv0do)
 
-*Kubernetes architecture explained.*
+*Kubernetes tutorial for beginners.*
 
 ### Video Element (HTML5)
 
@@ -332,9 +333,10 @@ The most important change is <mark>the new retry mechanism</mark> which handles 
 - [x] Kafka source connector
 - [x] Basic schema validation
 - [x] REST API for pipeline management
-- [ ] WebSocket source connector
-- [ ] Window-based aggregations
+- [x] WebSocket source connector
+- [x] Window-based aggregations
 - [ ] Dead letter queue support
+- [ ] ML inference stage (in progress)
 
 ## Blockquotes
 
@@ -360,9 +362,10 @@ The most important change is <mark>the new retry mechanism</mark> which handles 
 |------|------|----------|
 | Alice Chen | Platform Lead | San Francisco |
 | Bob Martinez | Backend Engineer | Austin |
-| Carol Wu | Data Engineer | Seattle |
+| Carol Wu | ML Engineer | Seattle |
 | David Kim | Frontend Engineer | New York |
 | Eve Johnson | DevOps | Remote |
+| **Frank Lee** | **Storage Engineer** | **London (new)** |
 
 ### Aligned Table
 
@@ -377,10 +380,11 @@ The most important change is <mark>the new retry mechanism</mark> which handles 
 
 | Scenario | Events/sec | p50 Latency | p99 Latency | CPU Usage |
 |----------|-----------|-------------|-------------|-----------|
-| Simple passthrough | 120,000 | 2ms | 15ms | 25% |
-| Schema validation | 95,000 | 5ms | 45ms | 40% |
-| Enrichment + aggregation | 52,000 | 18ms | 180ms | 72% |
-| Full pipeline (all stages) | 38,000 | 25ms | 250ms | 85% |
+| Simple passthrough | 180,000 | 1ms | 8ms | 20% |
+| Schema validation | 140,000 | 3ms | 25ms | 35% |
+| Enrichment + aggregation | 85,000 | 10ms | 95ms | 60% |
+| ML inference pipeline | 42,000 | 22ms | 190ms | 78% |
+| Full pipeline (all stages) | 35,000 | 30ms | 280ms | 90% |
 
 ## Links
 
@@ -532,9 +536,10 @@ Literal backticks: `` `code` `` and pipes in tables need escaping.
 
 ## Known Issues
 
-1. Memory usage spikes during window aggregation flush cycles. The current workaround is to increase the JVM heap size to 8GB.
-2. The Elasticsearch sink occasionally drops connections under sustained high load. A retry mechanism with exponential backoff is planned for v0.4.
-3. Schema evolution (adding new fields) requires a pipeline restart. Hot-reload support is on the Q2 roadmap.
+1. ~~Memory usage spikes during window aggregation flush cycles.~~ **Fixed in v0.3.2** — switched to off-heap buffers.
+2. The Elasticsearch sink occasionally drops connections under sustained high load. A retry mechanism with exponential backoff was **shipped in v0.4**.
+3. Schema evolution (adding new fields) now supports hot-reload as of v0.5. No restart required.
+4. **New:** ML inference stage has a cold-start latency of ~2s on first invocation. Model pre-warming is planned for v0.6.
 
 ## Contributing
 
@@ -543,11 +548,11 @@ Please read our [contributing guide](./CONTRIBUTING.md) before submitting pull r
 ## Badge Examples
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://example.com/ci)
-[![Coverage](https://img.shields.io/badge/coverage-94%25-green)](https://example.com/coverage)
-[![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.1-orange)](https://example.com/releases)
-[![Downloads](https://img.shields.io/badge/downloads-12k%2Fmonth-brightgreen)](https://example.com/stats)
+[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)](https://example.com/coverage)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
+[![Version](https://img.shields.io/badge/version-0.5.0-orange)](https://example.com/releases)
+[![Downloads](https://img.shields.io/badge/downloads-45k%2Fmonth-brightgreen)](https://example.com/stats)
 
 ---
 
-*Last updated: April 2026*
+*Last updated: April 24, 2026 — v2.0 release*

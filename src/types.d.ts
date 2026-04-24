@@ -14,3 +14,14 @@ declare module 'markdown-it-footnote' {
   const footnote: MarkdownIt.PluginSimple;
   export default footnote;
 }
+
+declare module 'highlight.js/lib/core' {
+  import hljs from 'highlight.js';
+  export default hljs;
+}
+
+declare module 'highlight.js/lib/languages/*' {
+  import { LanguageFn } from 'highlight.js';
+  const lang: LanguageFn;
+  export default lang;
+}

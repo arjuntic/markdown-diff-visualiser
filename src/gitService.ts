@@ -49,7 +49,7 @@ function execGit(args: string[], cwd: string): Promise<string> {
         // Git not installed or not in PATH
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           reject(new GitError(
-            'Git is not available. Please install Git to use Markdown Diff Preview.',
+            'Git is not available. Please install Git to use Markdown Diff Visualiser.',
             'GIT_NOT_INSTALLED'
           ));
           return;

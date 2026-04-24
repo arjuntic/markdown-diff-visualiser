@@ -9,6 +9,24 @@ import { createGitService, DiffMode, GitError } from './gitService';
 import { parseDiff, reconstructContent, DiffResult } from './diffParser';
 import { highlightDiff } from './diffHighlighter';
 import { createPanelManager, PanelManager, WebviewMessage } from './webviewPanelManager';
+import { execFile } from 'child_process';
+
+/**
+ * Find the git repository root for a given file path.
+ * Uses `git rev-parse --show-toplevel` from the file's directory.
+ */
+function findGitRoot(filePath: string): Promise<string> {
+  const dir = path.dirname(filePath);
+  return new Promise((resolve, reject) => {
+    execFile('git', ['rev-parse', '--show-toplevel'], { cwd: dir }, (error, stdout) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(stdout.trim());
+    });
+  });
+}
 
 /** Threshold for large file warning (lines). */
 const LARGE_FILE_LINE_THRESHOLD = 50_000;
@@ -64,16 +82,20 @@ async function runPipeline(
   commitSha?: string,
   changedSectionsOnly?: boolean
 ): Promise<void> {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    vscode.window.showErrorMessage('No workspace folder is open.');
-    return;
-  }
-
-  const workspaceRoot = workspaceFolder.uri.fsPath;
   const fileName = path.basename(filePath);
 
   log(`Running pipeline for "${fileName}" in ${mode} mode`);
+
+  // Find the git repo root for this file (not the workspace root)
+  let workspaceRoot: string;
+  try {
+    workspaceRoot = await findGitRoot(filePath);
+    log(`Git root for "${fileName}": ${workspaceRoot}`);
+  } catch {
+    vscode.window.showErrorMessage('No git repository found for this file.');
+    log(`Error: Could not find git root for "${filePath}"`);
+    return;
+  }
 
   // Step 1: Get diff via Git Service
   const gitService = createGitService(workspaceRoot, commitSha);
@@ -283,6 +305,157 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Get file content at a specific version.
+ * - 'unstaged': current working tree content
+ * - 'staged': content in the git index
+ * - 'committed': content at HEAD
+ */
+async function getFileAtVersion(
+  filePath: string,
+  version: string,
+  gitRoot: string
+): Promise<string> {
+  const relativePath = path.isAbsolute(filePath)
+    ? path.relative(gitRoot, filePath)
+    : filePath;
+  const gitPath = relativePath.split(path.sep).join('/');
+
+  if (version === 'unstaged') {
+    // Read from the working tree
+    try {
+      const fileUri = vscode.Uri.file(
+        path.isAbsolute(filePath) ? filePath : path.join(gitRoot, filePath)
+      );
+      const fileBytes = await vscode.workspace.fs.readFile(fileUri);
+      return Buffer.from(fileBytes).toString('utf-8');
+    } catch {
+      return '';
+    }
+  } else if (version === 'staged') {
+    // Read from the git index (staged)
+    return new Promise((resolve, reject) => {
+      execFile('git', ['show', `:${gitPath}`], { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+        if (error) {
+          // If not staged, fall back to HEAD
+          execFile('git', ['show', `HEAD:${gitPath}`], { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 }, (err2, stdout2) => {
+            if (err2) { resolve(''); return; }
+            resolve(stdout2);
+          });
+          return;
+        }
+        resolve(stdout);
+      });
+    });
+  } else {
+    // 'committed' — read from HEAD
+    return new Promise((resolve, reject) => {
+      execFile('git', ['show', `HEAD:${gitPath}`], { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+        if (error) { resolve(''); return; }
+        resolve(stdout);
+      });
+    });
+  }
+}
+
+/**
+ * Compare two versions of a file and show the diff preview.
+ */
+async function runVersionComparison(
+  filePath: string,
+  leftVersion: string,
+  rightVersion: string,
+  context: vscode.ExtensionContext
+): Promise<void> {
+  const fileName = path.basename(filePath);
+
+  let gitRoot: string;
+  try {
+    gitRoot = await findGitRoot(filePath);
+  } catch {
+    vscode.window.showErrorMessage('No git repository found for this file.');
+    return;
+  }
+
+  log(`Comparing ${leftVersion} vs ${rightVersion} for "${fileName}"`);
+
+  const leftContent = await getFileAtVersion(filePath, leftVersion, gitRoot);
+  const rightContent = await getFileAtVersion(filePath, rightVersion, gitRoot);
+
+  if (leftContent === rightContent) {
+    if (!panelManager) {
+      panelManager = createPanelManager(context, handleWebviewMessage(context));
+    }
+    panelManager.showPreview({
+      oldHtml: '',
+      newHtml: '',
+      fileName,
+      fileStatus: 'modified',
+      diffMode: 'unstaged',
+    });
+    vscode.window.showInformationMessage(`No differences between ${leftVersion} and ${rightVersion} for ${fileName}`);
+    return;
+  }
+
+  // Use diff library to compute the diff between the two versions
+  const diffLib = require('diff');
+  const rawPatch: string = diffLib.createTwoFilesPatch(
+    `a/${fileName}`,
+    `b/${fileName}`,
+    leftContent,
+    rightContent
+  );
+
+  // Add git diff header for parse-diff compatibility
+  const lines = rawPatch.split('\n');
+  lines[0] = `diff --git a/${fileName} b/${fileName}`;
+  const gitDiff = lines.join('\n');
+
+  const diffResults = parseDiff(gitDiff);
+  if (diffResults.length === 0) {
+    if (!panelManager) {
+      panelManager = createPanelManager(context, handleWebviewMessage(context));
+    }
+    panelManager.showPreview({
+      oldHtml: '',
+      newHtml: '',
+      fileName,
+      fileStatus: 'modified',
+      diffMode: 'unstaged',
+    });
+    vscode.window.showInformationMessage(`No differences found between ${leftVersion} and ${rightVersion} for ${fileName}`);
+    return;
+  }
+
+  const diffResult = diffResults[0];
+
+  let highlighted;
+  try {
+    highlighted = highlightDiff(leftContent, rightContent, diffResult.hunks);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    log(`Rendering error: ${msg}. Falling back to raw content.`);
+    highlighted = {
+      oldHtml: `<pre>${escapeHtml(leftContent)}</pre>`,
+      newHtml: `<pre>${escapeHtml(rightContent)}</pre>`,
+    };
+  }
+
+  if (!panelManager) {
+    panelManager = createPanelManager(context, handleWebviewMessage(context));
+  }
+
+  panelManager.showPreview({
+    oldHtml: highlighted.oldHtml,
+    newHtml: highlighted.newHtml,
+    fileName,
+    fileStatus: 'modified',
+    diffMode: 'unstaged',
+  });
+
+  log(`Version comparison shown for "${fileName}" (${leftVersion} vs ${rightVersion})`);
+}
+
+/**
  * Create a message handler for webview messages.
  */
 function handleWebviewMessage(context: vscode.ExtensionContext): (message: WebviewMessage) => void {
@@ -299,52 +472,18 @@ function handleWebviewMessage(context: vscode.ExtensionContext): (message: Webvi
         }
         break;
       }
-      case 'switchMode': {
+      case 'compareVersions': {
         const payload = message.payload;
-        if (payload) {
-          const newMode = payload['mode'] as DiffMode | undefined;
-          const commitSha = payload['commitSha'] as string | undefined;
-          if (newMode && (newMode === 'unstaged' || newMode === 'staged' || newMode === 'commit')) {
-            currentDiffMode = newMode;
-            currentCommitSha = commitSha;
-            log(`Switched to ${newMode} mode${commitSha ? ` (commit: ${commitSha})` : ''}`);
-            if (currentFilePath) {
-              runPipeline(currentFilePath, currentDiffMode, context, currentCommitSha).catch((err) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                log(`Error during mode switch: ${msg}`);
-                vscode.window.showErrorMessage(`Mode switch failed: ${msg}`);
-              });
-            }
-          }
-        }
-        break;
-      }
-      case 'requestCommitSha': {
-        log('Received requestCommitSha from webview');
-        (async () => {
-          const sha = await vscode.window.showInputBox({
-            prompt: 'Enter a commit SHA or short hash',
-            placeHolder: 'e.g. abc1234 or HEAD~1',
-            validateInput: (value) => {
-              if (!value || value.trim().length === 0) {
-                return 'Please enter a commit reference';
-              }
-              return undefined;
-            },
+        if (payload && currentFilePath) {
+          const leftVersion = (payload['leftVersion'] as string) || 'committed';
+          const rightVersion = (payload['rightVersion'] as string) || 'unstaged';
+          log(`Compare request: ${leftVersion} vs ${rightVersion}`);
+          runVersionComparison(currentFilePath, leftVersion, rightVersion, context).catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            log(`Error during version comparison: ${msg}`);
+            vscode.window.showErrorMessage(`Comparison failed: ${msg}`);
           });
-          if (sha) {
-            currentDiffMode = 'commit';
-            currentCommitSha = sha.trim();
-            log(`Commit mode selected with SHA: ${currentCommitSha}`);
-            if (currentFilePath) {
-              await runPipeline(currentFilePath, currentDiffMode, context, currentCommitSha);
-            }
-          }
-        })().catch((err) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          log(`Error during commit SHA request: ${msg}`);
-          vscode.window.showErrorMessage(`Failed to load commit diff: ${msg}`);
-        });
+        }
         break;
       }
       default:
@@ -396,22 +535,30 @@ function setupFileWatcher(filePath: string, context: vscode.ExtensionContext): v
  */
 export function activate(context: vscode.ExtensionContext): void {
   // Create the output channel for logging
-  outputChannel = vscode.window.createOutputChannel('Markdown Diff Preview');
+  outputChannel = vscode.window.createOutputChannel('Markdown Diff Visualiser');
   context.subscriptions.push(outputChannel);
 
-  log('Markdown Diff Preview extension activated');
+  log('Markdown Diff Visualiser extension activated');
 
   // Register the main command
   const showChangesCommand = vscode.commands.registerCommand(
-    'markdownDiffPreview.showChanges',
-    async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        vscode.window.showInformationMessage('No active editor found. Open a markdown file first.');
-        return;
-      }
+    'markdownDiffVisualiser.showChanges',
+    async (uri?: vscode.Uri) => {
+      // Determine the file path: from explorer context menu URI, or from active editor
+      let filePath: string;
 
-      const filePath = editor.document.uri.fsPath;
+      if (uri) {
+        // Invoked from explorer context menu — URI is passed as argument
+        filePath = uri.fsPath;
+      } else {
+        // Invoked from command palette or editor context menu
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showInformationMessage('No active editor found. Open a markdown file first.');
+          return;
+        }
+        filePath = editor.document.uri.fsPath;
+      }
 
       // Check if it's a markdown file
       if (!isMarkdownFile(filePath)) {
@@ -419,13 +566,17 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      // Store the current file path for refresh/mode-switch
+      // Store the current file path
       currentFilePath = filePath;
-      currentDiffMode = 'unstaged';
       currentCommitSha = undefined;
 
-      // Run the pipeline
-      await runPipeline(filePath, currentDiffMode, context, currentCommitSha);
+      // Ensure panel is created
+      if (!panelManager) {
+        panelManager = createPanelManager(context, handleWebviewMessage(context));
+      }
+
+      // Default comparison: Last Committed vs Unstaged (matches dropdown default)
+      await runVersionComparison(filePath, 'committed', 'unstaged', context);
 
       // Set up file watcher for auto-refresh
       setupFileWatcher(filePath, context);

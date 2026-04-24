@@ -14,81 +14,79 @@
   // Track current diff mode
   let currentMode = 'unstaged';
 
-  // --- Diff mode toolbar ---
+  // --- Toolbar with comparison mode dropdown and refresh ---
   function createToolbar() {
-    const toolbar = document.createElement('div');
+    var toolbar = document.createElement('div');
     toolbar.className = 'diff-mode-toolbar';
 
-    const modes = [
-      { value: 'unstaged', label: 'Unstaged' },
-      { value: 'staged', label: 'Staged' },
-      { value: 'commit', label: 'Commit' },
-    ];
+    var group = document.createElement('div');
+    group.className = 'dropdown-group';
+    var label = document.createElement('label');
+    label.className = 'dropdown-label';
+    label.textContent = 'Compare:';
+    var select = document.createElement('select');
+    select.className = 'version-select';
+    select.id = 'compareSelect';
+    select.innerHTML =
+      '<option value="committed-unstaged">Last Committed vs Unstaged</option>' +
+      '<option value="committed-staged">Last Committed vs Staged</option>' +
+      '<option value="staged-unstaged">Staged vs Unstaged</option>';
+    select.value = 'committed-unstaged';
+    group.appendChild(label);
+    group.appendChild(select);
+    toolbar.appendChild(group);
 
-    modes.forEach(function (mode) {
-      const btn = document.createElement('button');
-      btn.className = 'diff-mode-btn' + (mode.value === currentMode ? ' active' : '');
-      btn.textContent = mode.label;
-      btn.dataset.mode = mode.value;
-      btn.setAttribute('aria-pressed', mode.value === currentMode ? 'true' : 'false');
-      btn.addEventListener('click', function () {
-        switchMode(mode.value);
-      });
-      toolbar.appendChild(btn);
-    });
-
-    const refreshBtn = document.createElement('button');
+    var refreshBtn = document.createElement('button');
     refreshBtn.className = 'diff-mode-btn refresh-btn';
-    refreshBtn.textContent = '↻ Refresh';
+    refreshBtn.textContent = 'Refresh';
     refreshBtn.setAttribute('aria-label', 'Refresh diff');
     refreshBtn.addEventListener('click', function () {
-      vscode.postMessage({ type: 'refresh' });
+      sendCompareRequest();
     });
     toolbar.appendChild(refreshBtn);
 
-    // Insert toolbar after the panel header
-    const header = document.querySelector('.panel-header');
+    select.addEventListener('change', function () { sendCompareRequest(); });
+
+    var header = document.querySelector('.panel-header');
     if (header && header.parentNode) {
       header.parentNode.insertBefore(toolbar, header.nextSibling);
     }
   }
 
-  function switchMode(mode) {
-    if (mode === 'commit') {
-      // Ask the extension host to prompt for a commit SHA
-      vscode.postMessage({ type: 'requestCommitSha' });
-      return;
+  function sendCompareRequest() {
+    var select = document.getElementById('compareSelect');
+    if (select) {
+      var val = select.value;
+      var parts = val.split('-');
+      updatePaneLabels(val);
+      vscode.postMessage({
+        type: 'compareVersions',
+        payload: { leftVersion: parts[0], rightVersion: parts[1] }
+      });
     }
-    currentMode = mode;
-    // Update active button state
-    var buttons = document.querySelectorAll('.diff-mode-btn:not(.refresh-btn)');
-    buttons.forEach(function (btn) {
-      var isActive = btn.dataset.mode === mode;
-      btn.classList.toggle('active', isActive);
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    });
-    // Send switchMode message to extension host
-    vscode.postMessage({ type: 'switchMode', payload: { mode: mode } });
   }
 
-  // --- Synchronized scrolling ---
-  let isSyncing = false;
+  var versionNames = {
+    'committed': 'Last Committed',
+    'staged': 'Staged',
+    'unstaged': 'Unstaged'
+  };
+
+  function updatePaneLabels(compareValue) {
+    var parts = compareValue.split('-');
+    var leftLabel = document.getElementById('leftPaneLabel');
+    var rightLabel = document.getElementById('rightPaneLabel');
+    if (leftLabel) leftLabel.textContent = versionNames[parts[0]] || parts[0];
+    if (rightLabel) rightLabel.textContent = versionNames[parts[1]] || parts[1];
+  }
+
+  // --- Synchronized scrolling (1:1 pixel sync) ---
+  var isSyncing = false;
 
   function syncScroll(source, target) {
-    if (isSyncing) {
-      return;
-    }
+    if (isSyncing) return;
     isSyncing = true;
-
-    // Calculate scroll proportion
-    var maxScrollTop = source.scrollHeight - source.clientHeight;
-    if (maxScrollTop > 0) {
-      var proportion = source.scrollTop / maxScrollTop;
-      var targetMaxScrollTop = target.scrollHeight - target.clientHeight;
-      target.scrollTop = proportion * targetMaxScrollTop;
-    }
-
-    // Use requestAnimationFrame to avoid scroll event loops
+    target.scrollTop = source.scrollTop;
     requestAnimationFrame(function () {
       isSyncing = false;
     });
@@ -101,6 +99,101 @@
     newPane.addEventListener('scroll', function () {
       syncScroll(newPane, oldPane);
     });
+  }
+
+  // --- Alignment spacers ---
+  // After rendering, insert spacer divs so that unchanged content
+  // appears at the same vertical position on both sides.
+  // We find matching pairs of non-diff children and equalize their tops.
+
+  function alignPanes() {
+    if (!oldPane || !newPane) return;
+
+    // Remove any previously inserted spacers
+    oldPane.querySelectorAll('.alignment-spacer').forEach(function (s) { s.remove(); });
+    newPane.querySelectorAll('.alignment-spacer').forEach(function (s) { s.remove(); });
+
+    // Get direct children of each pane (the rendered blocks)
+    var oldChildren = Array.from(oldPane.children);
+    var newChildren = Array.from(newPane.children);
+
+    // Build arrays of {element, isDiff, textSignature} for matching
+    function classify(children) {
+      return children.map(function (el) {
+        var isDiff = el.classList.contains('diff-added-block') ||
+                     el.classList.contains('diff-removed-block');
+        // Use a short text signature for matching unchanged blocks
+        var text = isDiff ? null : el.textContent.trim().substring(0, 80);
+        return { el: el, isDiff: isDiff, text: text };
+      });
+    }
+
+    var oldItems = classify(oldChildren);
+    var newItems = classify(newChildren);
+
+    // Find matching unchanged blocks using text signatures
+    // Walk both lists and when we find a text match, insert a spacer
+    // on whichever side is shorter to equalize the offset
+    var oi = 0;
+    var ni = 0;
+
+    while (oi < oldItems.length && ni < newItems.length) {
+      var oldItem = oldItems[oi];
+      var newItem = newItems[ni];
+
+      // Both unchanged and text matches — this is an anchor point
+      if (!oldItem.isDiff && !newItem.isDiff && oldItem.text && oldItem.text === newItem.text) {
+        var oldTop = oldItem.el.offsetTop;
+        var newTop = newItem.el.offsetTop;
+        var diff = oldTop - newTop;
+
+        if (Math.abs(diff) > 2) {
+          var spacer = document.createElement('div');
+          spacer.className = 'alignment-spacer';
+
+          if (diff > 0) {
+            // New pane is ahead — insert spacer before the new element
+            spacer.style.height = diff + 'px';
+            newItem.el.parentNode.insertBefore(spacer, newItem.el);
+            // Re-classify since DOM changed
+            newItems.splice(ni, 0, { el: spacer, isDiff: true, text: null });
+            ni++; // skip the spacer we just inserted
+          } else {
+            // Old pane is ahead — insert spacer before the old element
+            spacer.style.height = (-diff) + 'px';
+            oldItem.el.parentNode.insertBefore(spacer, oldItem.el);
+            oldItems.splice(oi, 0, { el: spacer, isDiff: true, text: null });
+            oi++; // skip the spacer
+          }
+        }
+        oi++;
+        ni++;
+      } else if (oldItem.isDiff) {
+        oi++;
+      } else if (newItem.isDiff) {
+        ni++;
+      } else {
+        // Both unchanged but text doesn't match — advance the one with shorter text
+        // (heuristic: skip whichever seems like an insertion)
+        oi++;
+        ni++;
+      }
+    }
+
+    // Equalize total heights so scroll range is the same
+    var oldH = oldPane.scrollHeight;
+    var newH = newPane.scrollHeight;
+    if (oldH > newH) {
+      var pad = document.createElement('div');
+      pad.className = 'alignment-spacer';
+      pad.style.height = (oldH - newH) + 'px';
+      newPane.appendChild(pad);
+    } else if (newH > oldH) {
+      var pad2 = document.createElement('div');
+      pad2.className = 'alignment-spacer';
+      pad2.style.height = (newH - oldH) + 'px';
+      oldPane.appendChild(pad2);
+    }
   }
 
   // --- Handle messages from the extension ---
@@ -120,11 +213,8 @@
   });
 
   function handleUpdate(payload) {
-    if (!payload) {
-      return;
-    }
+    if (!payload) return;
 
-    // Update header
     if (fileNameEl) {
       fileNameEl.textContent = payload.fileName || '';
     }
@@ -133,18 +223,6 @@
       fileStatusEl.className = 'file-status status-' + (payload.fileStatus || 'modified');
     }
 
-    // Update diff mode if provided
-    if (payload.diffMode) {
-      currentMode = payload.diffMode;
-      var buttons = document.querySelectorAll('.diff-mode-btn:not(.refresh-btn)');
-      buttons.forEach(function (btn) {
-        var isActive = btn.dataset.mode === currentMode;
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      });
-    }
-
-    // Render pane content
     if (oldPane) {
       if (payload.oldHtml) {
         oldPane.innerHTML = payload.oldHtml;
@@ -164,16 +242,56 @@
         newPane.classList.add('empty-pane');
       }
     }
+
+    // Wait for images to load before aligning and building minimap
+    waitForImages(function () {
+      alignPanes();
+      buildScrollbarMinimap(oldPane, 'diff-removed-block', 'removed');
+      buildScrollbarMinimap(newPane, 'diff-added-block', 'added');
+    });
   }
 
-  /**
-   * Handle appendContent messages by appending HTML to existing pane content.
-   * Used for incremental rendering of large diffs.
-   */
-  function handleAppendContent(payload) {
-    if (!payload) {
-      return;
+  function waitForImages(callback) {
+    var images = document.querySelectorAll('.diff-pane img');
+    var pending = 0;
+    var done = false;
+
+    function check() {
+      if (done) return;
+      pending--;
+      if (pending <= 0) {
+        done = true;
+        callback();
+      }
     }
+
+    images.forEach(function (img) {
+      if (!img.complete) {
+        pending++;
+        img.addEventListener('load', check);
+        img.addEventListener('error', check);
+      }
+    });
+
+    // If no pending images, or all already loaded, run immediately
+    if (pending === 0) {
+      // Still use rAF to let the browser lay out the DOM first
+      requestAnimationFrame(function () {
+        requestAnimationFrame(callback);
+      });
+    }
+
+    // Safety timeout — don't wait forever for slow images
+    setTimeout(function () {
+      if (!done) {
+        done = true;
+        callback();
+      }
+    }, 3000);
+  }
+
+  function handleAppendContent(payload) {
+    if (!payload) return;
 
     if (oldPane && payload.oldHtml) {
       oldPane.insertAdjacentHTML('beforeend', payload.oldHtml);
@@ -188,42 +306,65 @@
 
   function formatStatus(status) {
     switch (status) {
-      case 'added':
-        return 'Added';
-      case 'deleted':
-        return 'Deleted';
-      case 'renamed':
-        return 'Renamed';
-      case 'modified':
-        return 'Modified';
-      default:
-        return status || '';
+      case 'added': return 'Added';
+      case 'deleted': return 'Deleted';
+      case 'renamed': return 'Renamed';
+      case 'modified': return 'Modified';
+      default: return status || '';
     }
   }
 
   function handleThemeChanged(payload) {
-    if (!payload || !payload.kind) {
-      return;
-    }
-    // Remove existing theme classes
+    if (!payload || !payload.kind) return;
     document.body.classList.remove('vscode-light', 'vscode-dark', 'vscode-high-contrast');
-    // Apply new theme class
     switch (payload.kind) {
-      case 'light':
-        document.body.classList.add('vscode-light');
-        break;
-      case 'dark':
-        document.body.classList.add('vscode-dark');
-        break;
-      case 'highContrast':
-        document.body.classList.add('vscode-high-contrast');
-        break;
+      case 'light': document.body.classList.add('vscode-light'); break;
+      case 'dark': document.body.classList.add('vscode-dark'); break;
+      case 'highContrast': document.body.classList.add('vscode-high-contrast'); break;
     }
+  }
+
+  // --- Scrollbar minimap ---
+  function buildScrollbarMinimap(pane, diffClass, type) {
+    if (!pane) return;
+
+    var existingMap = pane.parentElement.querySelector('.scrollbar-minimap[data-pane="' + pane.id + '"]');
+    if (existingMap) existingMap.remove();
+
+    var diffBlocks = pane.querySelectorAll('.' + diffClass);
+    if (diffBlocks.length === 0) return;
+
+    var totalHeight = pane.scrollHeight;
+    if (totalHeight <= 0) return;
+
+    var minimap = document.createElement('div');
+    minimap.className = 'scrollbar-minimap';
+    minimap.dataset.pane = pane.id;
+
+    for (var i = 0; i < diffBlocks.length; i++) {
+      var block = diffBlocks[i];
+      var topPercent = (block.offsetTop / totalHeight) * 100;
+      var heightPercent = Math.max((block.offsetHeight / totalHeight) * 100, 0.8);
+
+      var marker = document.createElement('div');
+      marker.className = 'minimap-marker minimap-marker-' + type;
+      marker.style.top = topPercent + '%';
+      marker.style.height = heightPercent + '%';
+
+      (function (targetTop) {
+        marker.addEventListener('click', function () {
+          pane.scrollTop = targetTop - pane.clientHeight / 2;
+        });
+      })(block.offsetTop);
+
+      minimap.appendChild(marker);
+    }
+
+    pane.parentElement.style.position = 'relative';
+    pane.parentElement.appendChild(minimap);
   }
 
   // --- Initialize ---
   createToolbar();
-
-  // Notify the extension that the webview is ready
   vscode.postMessage({ type: 'ready' });
 })();

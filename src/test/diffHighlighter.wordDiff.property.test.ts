@@ -1,7 +1,7 @@
 /**
  * Property-Based Test: Word-level diff precision
  *
- * Feature: markdown-diff-preview, Property 6: Word-level diff precision
+ * Feature: markdown-diff-visualiser, Property 6: Word-level diff precision
  *
  * For any two non-identical text strings representing a modified block,
  * the word-level diff SHALL annotate only the words that actually differ
@@ -121,7 +121,7 @@ const diffPairArb = fc
   .tuple(sentenceArb, sentenceArb)
   .filter(([a, b]) => a !== b);
 
-describe('Feature: markdown-diff-preview, Property 6: Word-level diff precision', function () {
+describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precision', function () {
   this.timeout(60000);
 
   it('unchanged text between old and new should not be wrapped in any highlight span', function () {

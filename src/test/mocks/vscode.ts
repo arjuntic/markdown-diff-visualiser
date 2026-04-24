@@ -67,7 +67,7 @@ export function createMockWebviewPanel(): any {
   const onDidDisposeListeners: Function[] = [];
 
   const panel: any = {
-    viewType: 'markdownDiffPreview',
+    viewType: 'markdownDiffVisualiser',
     title: '',
     webview,
     visible: true,

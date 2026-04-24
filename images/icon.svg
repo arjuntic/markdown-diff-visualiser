@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Background: rounded square -->
+  <rect x="4" y="4" width="120" height="120" rx="16" ry="16" fill="#1e1e2e"/>
+
+  <!-- Divider line (split view) -->
+  <line x1="64" y1="20" x2="64" y2="108" stroke="#585868" stroke-width="2" stroke-dasharray="4,3"/>
+
+  <!-- Left pane: old version (red tint) -->
+  <!-- Red diff highlight bar -->
+  <rect x="14" y="38" width="40" height="6" rx="2" fill="#c74e39" opacity="0.35"/>
+  <rect x="14" y="38" width="40" height="6" rx="2" fill="none" stroke="#c74e39" stroke-width="0.5" opacity="0.6"/>
+
+  <!-- Left text lines (old content) -->
+  <rect x="14" y="26" width="36" height="4" rx="2" fill="#8888a0"/>
+  <rect x="14" y="38" width="40" height="4" rx="2" fill="#e06060"/>
+  <rect x="14" y="50" width="28" height="4" rx="2" fill="#8888a0"/>
+  <rect x="14" y="62" width="34" height="4" rx="2" fill="#8888a0"/>
+  <rect x="14" y="74" width="40" height="4" rx="2" fill="#e06060"/>
+  <rect x="14" y="86" width="24" height="4" rx="2" fill="#8888a0"/>
+  <rect x="14" y="98" width="32" height="4" rx="2" fill="#8888a0"/>
+
+  <!-- Right pane: new version (green tint) -->
+  <!-- Green diff highlight bar -->
+  <rect x="74" y="38" width="40" height="6" rx="2" fill="#23863a" opacity="0.35"/>
+  <rect x="74" y="38" width="40" height="6" rx="2" fill="none" stroke="#23863a" stroke-width="0.5" opacity="0.6"/>
+
+  <!-- Right text lines (new content) -->
+  <rect x="74" y="26" width="36" height="4" rx="2" fill="#8888a0"/>
+  <rect x="74" y="38" width="38" height="4" rx="2" fill="#60c080"/>
+  <rect x="74" y="50" width="28" height="4" rx="2" fill="#8888a0"/>
+  <rect x="74" y="62" width="34" height="4" rx="2" fill="#8888a0"/>
+  <rect x="74" y="74" width="36" height="4" rx="2" fill="#60c080"/>
+  <rect x="74" y="80" width="26" height="4" rx="2" fill="#60c080"/>
+  <rect x="74" y="92" width="24" height="4" rx="2" fill="#8888a0"/>
+  <rect x="74" y="104" width="32" height="4" rx="2" fill="#8888a0"/>
+
+  <!-- Markdown "M" badge (bottom-right corner) -->
+  <circle cx="104" cy="104" r="16" fill="#4a9eff"/>
+  <path d="M94,112 L94,96 L99,103 L104,96 L104,112" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M109,96 L109,112" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M109,104 L114,96" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M109,104 L114,112" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Subtle diff arrows (left=removed, right=added) -->
+  <path d="M48,40 L56,40" stroke="#c74e39" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M53,37 L56,40 L53,43" fill="none" stroke="#c74e39" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+
+  <path d="M80,40 L72,40" stroke="#23863a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M75,37 L72,40 L75,43" fill="none" stroke="#23863a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+</svg>

@@ -1,7 +1,7 @@
 /**
  * Property-Based Test: Highlight classification correctness
  *
- * Feature: markdown-diff-preview, Property 5: Highlight classification correctness
+ * Feature: markdown-diff-visualiser, Property 5: Highlight classification correctness
  *
  * For any pair of old and new markdown contents with at least one difference,
  * the Diff_Highlighter SHALL annotate added content in the new HTML with the
@@ -61,7 +61,7 @@ const diffPairArb = fc
   .tuple(textArb, textArb)
   .filter(([oldText, newText]) => oldText !== newText);
 
-describe('Feature: markdown-diff-preview, Property 5: Highlight classification correctness', function () {
+describe('Feature: markdown-diff-visualiser, Property 5: Highlight classification correctness', function () {
   this.timeout(60000);
 
   it('should contain diff-added-block in new HTML when content is added', function () {

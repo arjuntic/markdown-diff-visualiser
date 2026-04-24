@@ -1,7 +1,7 @@
 /**
  * Property-Based Test: Diff parse and reconstruct round-trip
  *
- * Feature: markdown-diff-preview, Property 1: Diff parse and reconstruct round-trip
+ * Feature: markdown-diff-visualiser, Property 1: Diff parse and reconstruct round-trip
  *
  * For any pair of old and new markdown file contents, producing a unified diff,
  * parsing that diff into hunks, and reconstructing the old and new content from
@@ -63,7 +63,7 @@ const diffPairArb = fc
   .tuple(textArb, textArb)
   .filter(([oldText, newText]) => oldText !== newText);
 
-describe('Feature: markdown-diff-preview, Property 1: Diff parse and reconstruct round-trip', function () {
+describe('Feature: markdown-diff-visualiser, Property 1: Diff parse and reconstruct round-trip', function () {
   this.timeout(60000);
 
   it('should reconstruct original old and new content from parsed diff hunks', function () {

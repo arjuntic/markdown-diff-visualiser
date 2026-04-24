@@ -182,7 +182,7 @@ describe('Extension Controller', function () {
 
       expect(commandsMock.registerCommand.calledOnce).to.be.true;
       expect(commandsMock.registerCommand.firstCall.args[0]).to.equal(
-        'markdownDiffPreview.showChanges'
+        'markdownDiffVisualiser.showChanges'
       );
     });
 
@@ -207,7 +207,7 @@ describe('Extension Controller', function () {
       };
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
       expect(handler).to.be.a('function');
 
       await handler();
@@ -225,7 +225,7 @@ describe('Extension Controller', function () {
       vscodeMock.window.activeTextEditor = undefined;
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -250,7 +250,7 @@ describe('Extension Controller', function () {
       mockGitServiceInstance.getDiff.resolves('');
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -274,7 +274,7 @@ describe('Extension Controller', function () {
       parseDiffStub.returns([]);
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -327,7 +327,7 @@ describe('Extension Controller', function () {
       });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -364,7 +364,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -399,7 +399,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -430,7 +430,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -476,7 +476,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -523,7 +523,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -567,7 +567,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -609,7 +609,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
       await handler();
 
       // Deactivate should not throw
@@ -644,7 +644,7 @@ describe('Extension Controller', function () {
       highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 

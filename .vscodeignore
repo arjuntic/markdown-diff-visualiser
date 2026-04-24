@@ -11,3 +11,5 @@ tsconfig.json
 **/.git/**
 *.vsix
 test.md
+.history/**
+demo/Demo.mov

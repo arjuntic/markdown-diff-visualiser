@@ -25,7 +25,7 @@ export interface PreviewData {
 }
 
 export interface WebviewMessage {
-  type: 'refresh' | 'switchMode' | 'scroll' | 'requestCommitSha';
+  type: 'refresh' | 'switchMode' | 'scroll' | 'requestCommitSha' | 'compareVersions';
   payload?: Record<string, unknown>;
 }
 
@@ -51,7 +51,7 @@ export function createPanelManager(
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:; media-src ${webview.cspSource} https:;">
   <link rel="stylesheet" href="${styleUri}">
-  <title>Markdown Diff Preview</title>
+  <title>Markdown Diff Visualiser</title>
 </head>
 <body>
   <div class="panel-header">
@@ -59,8 +59,14 @@ export function createPanelManager(
     <span class="file-status" id="fileStatus"></span>
   </div>
   <div class="diff-container">
-    <div class="diff-pane diff-pane-left" id="oldPane"></div>
-    <div class="diff-pane diff-pane-right" id="newPane"></div>
+    <div class="diff-pane-wrapper diff-pane-wrapper-left">
+      <div class="pane-version-label" id="leftPaneLabel">Last Committed</div>
+      <div class="diff-pane diff-pane-left" id="oldPane"></div>
+    </div>
+    <div class="diff-pane-wrapper diff-pane-wrapper-right">
+      <div class="pane-version-label" id="rightPaneLabel">Unstaged</div>
+      <div class="diff-pane diff-pane-right" id="newPane"></div>
+    </div>
   </div>
   <script src="${scriptUri}"></script>
 </body>
@@ -69,8 +75,8 @@ export function createPanelManager(
 
   function createPanel(): vscode.WebviewPanel {
     const newPanel = vscode.window.createWebviewPanel(
-      'markdownDiffPreview',
-      'Markdown Diff Preview',
+      'markdownDiffVisualiser',
+      'Markdown Diff Visualiser',
       vscode.ViewColumn.One,
       {
         enableScripts: true,

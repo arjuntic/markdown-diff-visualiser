@@ -1,7 +1,7 @@
 /**
  * Property-Based Test: Renderer produces well-formed HTML
  *
- * Feature: markdown-diff-preview, Property 4: Renderer produces well-formed HTML
+ * Feature: markdown-diff-visualiser, Property 4: Renderer produces well-formed HTML
  *
  * For any valid markdown string, the Markdown_Renderer SHALL produce HTML output
  * where every opened tag has a corresponding closing tag (or is a valid self-closing tag),
@@ -203,7 +203,7 @@ const markdownDocArb = fc.array(
   { minLength: 1, maxLength: 10 }
 ).map(blocks => blocks.join('\n\n'));
 
-describe('Feature: markdown-diff-preview, Property 4: Renderer produces well-formed HTML', function () {
+describe('Feature: markdown-diff-visualiser, Property 4: Renderer produces well-formed HTML', function () {
   this.timeout(60000);
 
   const renderer = createRenderer();

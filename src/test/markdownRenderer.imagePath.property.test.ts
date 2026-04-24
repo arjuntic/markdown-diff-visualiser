@@ -1,7 +1,7 @@
 /**
  * Property-Based Test: Relative image path resolution
  *
- * Feature: markdown-diff-preview, Property 3: Relative image path resolution
+ * Feature: markdown-diff-visualiser, Property 3: Relative image path resolution
  *
  * For any markdown string containing relative image paths and any workspace root path,
  * the rendered HTML SHALL contain image `src` attributes with paths resolved relative
@@ -72,7 +72,7 @@ const absoluteUrlArb = fc.oneof(
   fc.constant('/absolute/path/image.png')
 );
 
-describe('Feature: markdown-diff-preview, Property 3: Relative image path resolution', function () {
+describe('Feature: markdown-diff-visualiser, Property 3: Relative image path resolution', function () {
   this.timeout(60000);
 
   const renderer = createRenderer();

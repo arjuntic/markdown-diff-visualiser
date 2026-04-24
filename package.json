@@ -1,53 +1,59 @@
 {
-  "name": "markdown-diff-preview",
-  "displayName": "Markdown Diff Preview",
+  "name": "markdown-diff-visualiser",
+  "displayName": "Markdown Diff Visualiser",
   "description": "Rendered side-by-side preview of markdown file diffs within VS Code",
   "version": "0.0.1",
-  "publisher": "markdown-diff-preview",
+  "publisher": "markdown-diff-visualiser",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "license": "MIT",
   "categories": [
     "Other"
   ],
+  "icon": "images/icon.png",
   "activationEvents": [
     "onLanguage:markdown",
-    "onCommand:markdownDiffPreview.showChanges"
+    "onCommand:markdownDiffVisualiser.showChanges"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "markdownDiffPreview.showChanges",
-        "title": "Markdown Diff Preview: Show Changes"
+        "command": "markdownDiffVisualiser.showChanges",
+        "title": "Markdown Diff Visualiser: Show Changes",
+        "icon": {
+          "light": "images/icon.svg",
+          "dark": "images/icon.svg"
+        }
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "markdownDiffPreview.showChanges",
-          "when": "resourceLangId == markdown",
+          "command": "markdownDiffVisualiser.showChanges",
+          "when": "resourceLangId == markdown || resourceFilename =~ /\\.md$/ || resourceFilename =~ /\\.markdown$/",
           "group": "navigation"
         }
       ],
       "editor/title": [
         {
-          "command": "markdownDiffPreview.showChanges",
-          "when": "resourceLangId == markdown",
+          "command": "markdownDiffVisualiser.showChanges",
+          "when": "resourceLangId == markdown || resourceFilename =~ /\\.md$/ || resourceFilename =~ /\\.markdown$/",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
-          "command": "markdownDiffPreview.showChanges",
-          "when": "resourceLangId == markdown",
+          "command": "markdownDiffVisualiser.showChanges",
+          "when": "resourceFilename =~ /\\.md$/ || resourceFilename =~ /\\.markdown$/",
           "group": "navigation"
         }
       ],
       "scm/resourceState/context": [
         {
-          "command": "markdownDiffPreview.showChanges",
-          "when": "resourceLangId == markdown",
+          "command": "markdownDiffVisualiser.showChanges",
+          "when": "resourceFilename =~ /\\.md$/ || resourceFilename =~ /\\.markdown$/",
           "group": "inline"
         }
       ]
@@ -61,7 +67,9 @@
     "test": "mocha --require ts-node/register 'src/test/**/*.test.ts' --timeout 10000"
   },
   "dependencies": {
+    "diff": "^9.0.0",
     "diff-match-patch": "^1.0.5",
+    "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-task-lists": "^2.1.1",

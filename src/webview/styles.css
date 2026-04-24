@@ -1,4 +1,4 @@
-/* Webview styles for Markdown Diff Preview */
+/* Webview styles for Markdown Diff Visualiser */
 
 /* Theme-adaptive CSS variables */
 :root {
@@ -125,6 +125,42 @@ body {
   margin-left: auto;
 }
 
+/* Version comparison dropdowns */
+.dropdown-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dropdown-label {
+  font-size: 0.85em;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.version-select {
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #cccccc);
+  border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  cursor: pointer;
+  outline: none;
+}
+
+.version-select:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.version-select option {
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #cccccc);
+}
+
+/* Removed vs-label — using single dropdown now */
+
 /* Diff container - accounts for header + toolbar height */
 .diff-container {
   display: grid;
@@ -138,11 +174,107 @@ body {
 .diff-pane {
   overflow-y: auto;
   padding: 16px 20px;
+  padding-right: 30px; /* extra space for minimap */
   box-sizing: border-box;
+  flex: 1;
+  min-height: 0; /* needed for flex overflow scroll */
 }
 
 .diff-pane-left {
+  /* border moved to wrapper */
+}
+
+/* Pane wrappers for minimap positioning */
+.diff-pane-wrapper {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-pane-wrapper-left {
   border-right: 1px solid var(--vscode-panel-border);
+}
+
+/* Pane version labels — shown at the top of each pane */
+.pane-version-label {
+  padding: 4px 16px;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-align: center;
+  background-color: var(--vscode-titleBar-activeBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.diff-pane-wrapper-left .pane-version-label {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+}
+
+.diff-pane-wrapper-right .pane-version-label {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+}
+
+/* Scrollbar minimap — thin strip on the right edge of each pane */
+.scrollbar-minimap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 100%;
+  pointer-events: auto;
+  z-index: 10;
+  background: transparent;
+}
+
+.minimap-marker {
+  position: absolute;
+  right: 0;
+  width: 20px;
+  min-height: 4px;
+  border-radius: 2px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+/* Alignment spacers — invisible padding to keep unchanged content aligned */
+.alignment-spacer {
+  display: block;
+  width: 100%;
+  pointer-events: none;
+}
+
+.minimap-marker:hover {
+  opacity: 1;
+}
+
+.minimap-marker-removed {
+  background-color: #c74e39;
+}
+
+.minimap-marker-added {
+  background-color: #23863a;
+}
+
+/* Dark theme minimap */
+.vscode-dark .minimap-marker-removed {
+  background-color: #e06060;
+}
+
+.vscode-dark .minimap-marker-added {
+  background-color: #60c080;
+}
+
+/* High contrast minimap */
+.vscode-high-contrast .minimap-marker-removed {
+  background-color: #ff6666;
+}
+
+.vscode-high-contrast .minimap-marker-added {
+  background-color: #66ff99;
 }
 
 /* Scrollbar styling */
@@ -331,4 +463,138 @@ body {
 
 .diff-pane .task-list-item input[type="checkbox"] {
   margin-right: 0.5em;
+}
+
+/* Syntax highlighting for code blocks (highlight.js) */
+/* Uses VS Code theme-aware colors */
+
+.hljs {
+  background: var(--vscode-textCodeBlock-background, rgba(110, 118, 129, 0.2)) !important;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+/* Keywords: if, else, return, function, class, import, etc. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name {
+  color: #c586c0;
+}
+
+/* Strings */
+.hljs-string,
+.hljs-attr,
+.hljs-template-variable {
+  color: #ce9178;
+}
+
+/* Numbers */
+.hljs-number,
+.hljs-literal {
+  color: #b5cea8;
+}
+
+/* Comments */
+.hljs-comment,
+.hljs-quote {
+  color: #6a9955;
+  font-style: italic;
+}
+
+/* Functions */
+.hljs-title,
+.hljs-section {
+  color: #dcdcaa;
+}
+
+/* Types, classes */
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #4ec9b0;
+}
+
+/* Variables, params */
+.hljs-variable,
+.hljs-params {
+  color: #9cdcfe;
+}
+
+/* Attributes in HTML/XML */
+.hljs-attribute {
+  color: #9cdcfe;
+}
+
+/* Tags in HTML */
+.hljs-tag {
+  color: #569cd6;
+}
+
+/* Operators */
+.hljs-symbol,
+.hljs-bullet {
+  color: #d4d4d4;
+}
+
+/* Meta, preprocessor */
+.hljs-meta {
+  color: #569cd6;
+}
+
+/* Deletion in diffs */
+.hljs-deletion {
+  color: #ce9178;
+  background-color: rgba(218, 54, 51, 0.15);
+}
+
+/* Addition in diffs */
+.hljs-addition {
+  color: #b5cea8;
+  background-color: rgba(35, 134, 54, 0.15);
+}
+
+/* Light theme overrides */
+.vscode-light .hljs {
+  color: #1e1e1e;
+}
+
+.vscode-light .hljs-keyword,
+.vscode-light .hljs-selector-tag,
+.vscode-light .hljs-built_in,
+.vscode-light .hljs-name {
+  color: #af00db;
+}
+
+.vscode-light .hljs-string,
+.vscode-light .hljs-attr,
+.vscode-light .hljs-template-variable {
+  color: #a31515;
+}
+
+.vscode-light .hljs-number,
+.vscode-light .hljs-literal {
+  color: #098658;
+}
+
+.vscode-light .hljs-comment,
+.vscode-light .hljs-quote {
+  color: #008000;
+}
+
+.vscode-light .hljs-title,
+.vscode-light .hljs-section {
+  color: #795e26;
+}
+
+.vscode-light .hljs-type,
+.vscode-light .hljs-class .hljs-title {
+  color: #267f99;
+}
+
+.vscode-light .hljs-variable,
+.vscode-light .hljs-params {
+  color: #001080;
+}
+
+.vscode-light .hljs-tag {
+  color: #800000;
 }

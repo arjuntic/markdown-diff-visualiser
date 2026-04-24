@@ -191,13 +191,13 @@ describe('Error Handling Paths', function () {
       // Simulate GIT_NOT_INSTALLED error
       mockGitServiceInstance.getDiff.rejects(
         new GitErrorClass(
-          'Git is not available. Please install Git to use Markdown Diff Preview.',
+          'Git is not available. Please install Git to use Markdown Diff Visualiser.',
           'GIT_NOT_INSTALLED'
         )
       );
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -232,7 +232,7 @@ describe('Error Handling Paths', function () {
       );
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -258,7 +258,7 @@ describe('Error Handling Paths', function () {
       );
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -283,7 +283,7 @@ describe('Error Handling Paths', function () {
       parseDiffStub.returns([]);
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -344,7 +344,7 @@ describe('Error Handling Paths', function () {
       highlightDiffStub.throws(new Error('Rendering engine failure'));
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
@@ -394,7 +394,7 @@ describe('Error Handling Paths', function () {
       highlightDiffStub.throws(new Error('Rendering failure'));
 
       extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffPreview.showChanges'];
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
