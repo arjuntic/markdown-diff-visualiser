@@ -22,5 +22,6 @@ Thumbs.db
 # Declaration files (generated)
 out/**/*.d.ts
 
-# Kiro configs
-.kiro/
+# Kiro configs (except steering)
+.kiro/specs/
+.kiro/settings/
