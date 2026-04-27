@@ -49,11 +49,18 @@ npm run package          # Bundle + package as .vsix
 
 After editing any `.md` or `.markdown` file in this project or any project with this extension installed, the user can preview the rendered diff:
 
+**Option 1 — Browser preview (works from any terminal):**
+```bash
+node scripts/preview-diff.js <file> [mode]
+# mode: committed-unstaged (default), committed-staged, staged-unstaged
+```
+
+**Option 2 — VS Code extension:**
 1. Open the file in VS Code
 2. `Cmd+Shift+P` → "Markdown Diff Visualiser: Show Changes"
 3. Or right-click → "Markdown Diff Visualiser: Show Changes"
 
-**Suggest this to the user** whenever you modify markdown files — it's much more useful than a raw git diff for documentation changes.
+**Suggest this to the user** whenever you modify markdown files.
 
 ## Testing
 

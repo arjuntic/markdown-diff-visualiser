@@ -23,15 +23,25 @@ When markdown files have been modified, use this skill to help the user visualis
 
 ## How to Trigger
 
-Run this VS Code command from the terminal:
+The fastest way is to run the standalone browser preview from the terminal:
 
 ```bash
-# Open the markdown diff visualiser for a specific file
-# The extension must be installed in VS Code/Kiro
-code --command markdownDiffVisualiser.showChanges
+# From the project root — opens the diff in your default browser
+node scripts/preview-diff.js <file>
+
+# Examples:
+node scripts/preview-diff.js README.md
+node scripts/preview-diff.js docs/guide.md committed-staged
 ```
 
-Or instruct the user to:
+This works from any terminal (Claude Code, Codex, regular shell) and opens a full-featured rendered diff in the browser with:
+- Side-by-side rendered preview with green/red highlights
+- Content-aligned scrolling
+- Scrollbar minimap with clickable markers
+- Syntax-highlighted code blocks
+- Dark mode support (follows system preference)
+
+Alternatively, if the user has VS Code open:
 1. Open the modified `.md` file in VS Code
 2. Press `Cmd+Shift+P` (or `Ctrl+Shift+P`)
 3. Type "Markdown Diff Visualiser: Show Changes"
