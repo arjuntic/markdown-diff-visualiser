@@ -21,7 +21,6 @@
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
-const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -34,7 +33,6 @@ if (fs.existsSync(path.join(ROOT, 'out', 'diffParser.js'))) {
   process.exit(1);
 }
 
-const { createGitService } = require(path.join(pipelineRoot, 'gitService'));
 const { parseDiff } = require(path.join(pipelineRoot, 'diffParser'));
 const { highlightDiff } = require(path.join(pipelineRoot, 'diffHighlighter'));
 
@@ -68,67 +66,108 @@ function getFileAtVersion(version, relPath, gitRoot) {
 
 async function main() {
   const fileName = path.basename(targetFile);
-  const parts = mode.split('-');
-  const leftVersion = parts[0];  // committed, staged
-  const rightVersion = parts[1]; // unstaged, staged
-
-  const versionNames = { committed: 'Last Committed', staged: 'Staged', unstaged: 'Unstaged' };
-  const leftLabel = versionNames[leftVersion] || leftVersion;
-  const rightLabel = versionNames[rightVersion] || rightVersion;
-
-  console.log(`Comparing ${leftLabel} vs ${rightLabel} for ${fileName}...`);
-
-  const leftContent = getFileAtVersion(leftVersion, relativeFile, ROOT);
-  const rightContent = getFileAtVersion(rightVersion, relativeFile, ROOT);
-
-  if (leftContent === rightContent) {
-    console.log(`No differences between ${leftLabel} and ${rightLabel} for ${fileName}`);
-    process.exit(0);
-  }
-
-  // Compute diff using the diff library
-  const diffLib = require('diff');
-  const rawPatch = diffLib.createTwoFilesPatch(`a/${fileName}`, `b/${fileName}`, leftContent, rightContent);
-  const lines = rawPatch.split('\n');
-  lines[0] = `diff --git a/${fileName} b/${fileName}`;
-  const gitDiff = lines.join('\n');
-
-  const diffResults = parseDiff(gitDiff);
-  const hunks = diffResults.length > 0 ? diffResults[0].hunks : [];
-
-  let oldHtml, newHtml;
-  try {
-    const result = highlightDiff(leftContent, rightContent, hunks);
-    oldHtml = result.oldHtml;
-    newHtml = result.newHtml;
-  } catch (err) {
-    console.error('Highlighting error, falling back to raw:', err.message);
-    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    oldHtml = `<pre>${esc(leftContent)}</pre>`;
-    newHtml = `<pre>${esc(rightContent)}</pre>`;
-  }
-
-  const html = buildPage(fileName, leftLabel, rightLabel, oldHtml, newHtml);
-  const outFile = path.join(os.tmpdir(), 'markdown-diff-visualiser.html');
-  fs.writeFileSync(outFile, html, 'utf8');
-
-  console.log(`Preview: ${outFile}`);
-
-  // Open in default browser
-  try {
-    if (process.platform === 'darwin') {
-      execFileSync('open', [outFile]);
-    } else if (process.platform === 'win32') {
-      execFileSync('cmd', ['/c', 'start', outFile]);
-    } else {
-      execFileSync('xdg-open', [outFile]);
-    }
-  } catch {
-    console.log('Could not open browser automatically. Open the file manually.');
-  }
+  console.log(`Starting diff preview server for ${fileName}...`);
+  await serveDynamic(fileName);
 }
 
-function buildPage(fileName, leftLabel, rightLabel, oldHtml, newHtml) {
+/**
+ * Serve the diff preview dynamically — supports mode switching via query params.
+ * The browser can reload with ?mode=committed-staged to switch comparison modes.
+ */
+function serveDynamic(fileName) {
+  return new Promise((resolve) => {
+    const http = require('http');
+    const url = require('url');
+    const versionNames = { committed: 'Last Committed', staged: 'Staged', unstaged: 'Unstaged' };
+
+    const server = http.createServer((req, res) => {
+      const parsed = url.parse(req.url, true);
+      const reqMode = parsed.query.mode || 'committed-unstaged';
+      const parts = reqMode.split('-');
+      const leftV = parts[0];
+      const rightV = parts[1] || 'unstaged';
+      const leftLabel = versionNames[leftV] || leftV;
+      const rightLabel = versionNames[rightV] || rightV;
+
+      let leftContent, rightContent;
+      try {
+        leftContent = getFileAtVersion(leftV, relativeFile, ROOT);
+        rightContent = getFileAtVersion(rightV, relativeFile, ROOT);
+      } catch (err) {
+        res.writeHead(500);
+        res.end('Error reading file versions: ' + err.message);
+        return;
+      }
+
+      let oldHtml = '', newHtml = '';
+      if (leftContent !== rightContent) {
+        const diffLib = require('diff');
+        const rawPatch = diffLib.createTwoFilesPatch('a/' + fileName, 'b/' + fileName, leftContent, rightContent);
+        const lines = rawPatch.split('\n');
+        lines[0] = 'diff --git a/' + fileName + ' b/' + fileName;
+        const gitDiff = lines.join('\n');
+        const diffResults = parseDiff(gitDiff);
+        const hunks = diffResults.length > 0 ? diffResults[0].hunks : [];
+        try {
+          const result = highlightDiff(leftContent, rightContent, hunks);
+          oldHtml = result.oldHtml;
+          newHtml = result.newHtml;
+        } catch {
+          const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          oldHtml = '<pre>' + esc(leftContent) + '</pre>';
+          newHtml = '<pre>' + esc(rightContent) + '</pre>';
+        }
+      }
+
+      const html = buildPage(fileName, leftLabel, rightLabel, reqMode, oldHtml, newHtml);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      const openUrl = 'http://127.0.0.1:' + port + '/?mode=' + mode;
+      console.log('Preview: ' + openUrl);
+      console.log('Press Ctrl+C to stop.');
+      try {
+        if (process.platform === 'darwin') {
+          execFileSync('open', [openUrl]);
+        } else if (process.platform === 'win32') {
+          execFileSync('cmd', ['/c', 'start', openUrl]);
+        } else {
+          execFileSync('xdg-open', [openUrl]);
+        }
+      } catch {
+        console.log('Open manually: ' + openUrl);
+      }
+
+      // Auto-shutdown after 5 minutes
+      setTimeout(() => { server.close(); resolve(); }, 300000);
+    });
+
+    process.on('SIGINT', () => { server.close(); resolve(); });
+  });
+}
+
+function buildPage(fileName, leftLabel, rightLabel, currentMode, oldHtml, newHtml) {
+  const noChanges = !oldHtml && !newHtml;
+  const bodyContent = noChanges
+    ? '<div style="display:flex;align-items:center;justify-content:center;flex:1;color:var(--muted);font-size:1.2em;font-style:italic;">No differences found</div>'
+    : `<div class="pane-labels">
+    <div class="pane-label pane-label-old">${leftLabel}</div>
+    <div class="pane-label pane-label-new">${rightLabel}</div>
+  </div>
+  <div class="diff-container">
+    <div class="diff-pane-wrapper">
+      <div class="diff-pane" id="oldPane">${oldHtml}</div>
+      <div class="scrollbar-minimap" id="oldMinimap"></div>
+    </div>
+    <div class="diff-pane-wrapper">
+      <div class="diff-pane" id="newPane">${newHtml}</div>
+      <div class="scrollbar-minimap" id="newMinimap"></div>
+    </div>
+  </div>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -142,24 +181,21 @@ ${getStyles()}
 <body>
   <div class="panel-header">
     <span class="file-name">${fileName}</span>
-    <span class="mode-label">${leftLabel} vs ${rightLabel}</span>
+    <label class="dropdown-label">Compare:</label>
+    <select class="version-select" id="compareSelect" onchange="switchMode()">
+      <option value="committed-unstaged"${currentMode === 'committed-unstaged' ? ' selected' : ''}>Last Committed vs Unstaged</option>
+      <option value="committed-staged"${currentMode === 'committed-staged' ? ' selected' : ''}>Last Committed vs Staged</option>
+      <option value="staged-unstaged"${currentMode === 'staged-unstaged' ? ' selected' : ''}>Staged vs Unstaged</option>
+    </select>
+    <button class="refresh-btn" onclick="location.reload()">Refresh</button>
   </div>
-  <div class="pane-labels">
-    <div class="pane-label pane-label-old">${leftLabel}</div>
-    <div class="pane-label pane-label-new">${rightLabel}</div>
-  </div>
-  <div class="diff-container">
-    <div class="diff-pane-wrapper">
-      <div class="diff-pane" id="oldPane">${oldHtml}</div>
-      <div class="scrollbar-minimap" id="oldMinimap"></div>
-    </div>
-    <div class="diff-pane-wrapper">
-      <div class="diff-pane" id="newPane">${newHtml}</div>
-      <div class="scrollbar-minimap" id="newMinimap"></div>
-    </div>
-  </div>
+  ${bodyContent}
   <script>
-${getScript()}
+    function switchMode() {
+      var sel = document.getElementById('compareSelect');
+      window.location.href = '/?mode=' + sel.value;
+    }
+${noChanges ? '' : getScript()}
   </script>
 </body>
 </html>`;
@@ -229,6 +265,18 @@ function getStyles() {
     }
     .file-name { font-weight: 600; font-size: 14px; }
     .mode-label { color: var(--muted); font-size: 12px; }
+    .dropdown-label { color: var(--muted); font-size: 12px; margin-left: 8px; }
+    .version-select {
+      background: var(--header-bg); color: var(--fg);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 8px; font-size: 12px; cursor: pointer;
+    }
+    .refresh-btn {
+      margin-left: auto; background: var(--header-bg); color: var(--fg);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 12px; font-size: 12px; cursor: pointer;
+    }
+    .refresh-btn:hover { background: var(--border); }
 
     /* Pane labels */
     .pane-labels { display: flex; flex-shrink: 0; }
