@@ -13,3 +13,15 @@ tsconfig.json
 test.md
 .history/**
 demo/Demo.mov
+demo/**
+mockups/**
+scripts/**
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.claude/**
+.kiro/**
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+CHANGELOG.md

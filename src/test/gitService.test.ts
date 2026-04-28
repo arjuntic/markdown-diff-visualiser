@@ -7,7 +7,6 @@
  * Requirements covered: 6.1, 6.2, 6.3
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { createGitService, GitError } from '../gitService';
@@ -36,11 +35,9 @@ describe('Git Service', function () {
     stderr?: string;
     error?: NodeJS.ErrnoException | null;
   }): void {
-    execFileStub.callsFake(
-      (_cmd: string, _args: string[], _opts: any, callback: Function) => {
-        callback(result.error || null, result.stdout || '', result.stderr || '');
-      }
-    );
+    execFileStub.callsFake((_cmd: string, _args: string[], _opts: any, callback: Function) => {
+      callback(result.error || null, result.stdout || '', result.stderr || '');
+    });
   }
 
   /**
@@ -52,17 +49,15 @@ describe('Git Service', function () {
       stdout?: string;
       stderr?: string;
       error?: NodeJS.ErrnoException | null;
-    }
+    },
   ): void {
-    execFileStub.callsFake(
-      (_cmd: string, args: string[], _opts: any, callback: Function) => {
-        if (JSON.stringify(args) === JSON.stringify(expectedArgs)) {
-          callback(result.error || null, result.stdout || '', result.stderr || '');
-        } else {
-          callback(null, '', '');
-        }
+    execFileStub.callsFake((_cmd: string, args: string[], _opts: any, callback: Function) => {
+      if (JSON.stringify(args) === JSON.stringify(expectedArgs)) {
+        callback(result.error || null, result.stdout || '', result.stderr || '');
+      } else {
+        callback(null, '', '');
       }
-    );
+    });
   }
 
   describe('getRepoRoot', function () {
@@ -176,10 +171,7 @@ describe('Git Service', function () {
       });
 
       const service = createGitService('/workspace');
-      const result = await service.getFileContent(
-        '/workspace/src/docs/README.md',
-        'HEAD'
-      );
+      const result = await service.getFileContent('/workspace/src/docs/README.md', 'HEAD');
 
       expect(result).to.equal('file content');
     });
@@ -220,9 +212,7 @@ describe('Git Service', function () {
     });
 
     it('should return false when file is not tracked (FILE_NOT_TRACKED error)', async function () {
-      const error = new Error(
-        'pathspec did not match any file'
-      ) as NodeJS.ErrnoException;
+      const error = new Error('pathspec did not match any file') as NodeJS.ErrnoException;
 
       stubExecFileForArgs(['diff', '--', 'untracked.md'], {
         error,
@@ -236,9 +226,7 @@ describe('Git Service', function () {
     });
 
     it('should rethrow non-FILE_NOT_TRACKED errors', async function () {
-      const error = new Error(
-        'fatal: not a git repository'
-      ) as NodeJS.ErrnoException;
+      const error = new Error('fatal: not a git repository') as NodeJS.ErrnoException;
 
       stubExecFileForArgs(['diff', '--', 'README.md'], {
         error,
@@ -259,8 +247,7 @@ describe('Git Service', function () {
 
   describe('getChangedMarkdownFiles', function () {
     it('should correctly parse and filter markdown files for unstaged mode', async function () {
-      const nameStatusOutput =
-        'M\tREADME.md\nM\tsrc/index.ts\nA\tdocs/new.markdown\nD\told.md\n';
+      const nameStatusOutput = 'M\tREADME.md\nM\tsrc/index.ts\nA\tdocs/new.markdown\nD\told.md\n';
 
       stubExecFileForArgs(['diff', '--name-status'], {
         stdout: nameStatusOutput,
@@ -407,14 +394,11 @@ describe('Git Service', function () {
     });
 
     it('should throw NOT_A_REPO error when not in a git repository', async function () {
-      const error = new Error(
-        'fatal: not a git repository'
-      ) as NodeJS.ErrnoException;
+      const error = new Error('fatal: not a git repository') as NodeJS.ErrnoException;
 
       stubExecFileAny({
         error,
-        stderr:
-          'fatal: not a git repository (or any of the parent directories): .git',
+        stderr: 'fatal: not a git repository (or any of the parent directories): .git',
       });
 
       const service = createGitService('/not-a-repo');
@@ -430,14 +414,11 @@ describe('Git Service', function () {
     });
 
     it('should throw FILE_NOT_TRACKED error when file does not exist in git', async function () {
-      const error = new Error(
-        'pathspec did not match any file'
-      ) as NodeJS.ErrnoException;
+      const error = new Error('pathspec did not match any file') as NodeJS.ErrnoException;
 
       stubExecFileAny({
         error,
-        stderr:
-          "error: pathspec 'unknown.md' did not match any file(s) known to git",
+        stderr: "error: pathspec 'unknown.md' did not match any file(s) known to git",
       });
 
       const service = createGitService('/workspace');

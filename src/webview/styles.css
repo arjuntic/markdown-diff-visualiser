@@ -16,16 +16,16 @@
 
 /* Dark theme */
 .vscode-dark {
-  --diff-added-bg: rgba(35, 134, 54, 0.20);
-  --diff-removed-bg: rgba(218, 54, 51, 0.20);
+  --diff-added-bg: rgba(35, 134, 54, 0.2);
+  --diff-removed-bg: rgba(218, 54, 51, 0.2);
   --diff-added-word-bg: rgba(35, 134, 54, 0.45);
   --diff-removed-word-bg: rgba(218, 54, 51, 0.45);
 }
 
 /* High contrast theme */
 .vscode-high-contrast {
-  --diff-added-bg: rgba(35, 134, 54, 0.30);
-  --diff-removed-bg: rgba(218, 54, 51, 0.30);
+  --diff-added-bg: rgba(35, 134, 54, 0.3);
+  --diff-removed-bg: rgba(218, 54, 51, 0.3);
   --diff-added-word-bg: rgba(35, 134, 54, 0.55);
   --diff-removed-word-bg: rgba(218, 54, 51, 0.55);
 }
@@ -359,10 +359,19 @@ body {
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
-.diff-pane h3 { font-size: 1.25em; }
-.diff-pane h4 { font-size: 1em; }
-.diff-pane h5 { font-size: 0.875em; }
-.diff-pane h6 { font-size: 0.85em; opacity: 0.8; }
+.diff-pane h3 {
+  font-size: 1.25em;
+}
+.diff-pane h4 {
+  font-size: 1em;
+}
+.diff-pane h5 {
+  font-size: 0.875em;
+}
+.diff-pane h6 {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
 
 .diff-pane p {
   margin-top: 0;
@@ -461,7 +470,7 @@ body {
   margin-left: -1.5em;
 }
 
-.diff-pane .task-list-item input[type="checkbox"] {
+.diff-pane .task-list-item input[type='checkbox'] {
   margin-right: 0.5em;
 }
 

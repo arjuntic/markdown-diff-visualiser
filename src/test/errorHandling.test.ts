@@ -2,17 +2,23 @@
  * Unit Tests for Error Handling Paths
  *
  * Tests error scenarios in the extension pipeline:
- * - Git not installed error shows correct message (GIT_NOT_INSTALLED → showErrorMessage)
- * - Malformed diff shows info message and logs warning (parseDiff returns empty → showInformationMessage)
+ * - Git not found error shows correct message (findGitRoot fails → showErrorMessage)
+ * - Malformed diff shows info message (parseDiff returns empty → showInformationMessage)
  * - Rendering failure falls back to raw markdown (highlightDiff throws → fallback to escaped HTML)
  * - Webview disposed unexpectedly triggers cleanup (onDidDispose → resources cleaned up)
+ *
+ * The showChanges command uses runVersionComparison which calls findGitRoot
+ * (child_process.execFile), getFileAtVersion, diffLib.createTwoFilesPatch,
+ * parseDiff, and highlightDiff.
+ *
+ * The runPipeline path (used by refresh/file-watcher) uses gitService.getDiff
+ * and is tested separately for GitError handling.
  *
  * Uses the same proxyquire approach as extension.test.ts to inject mocks.
  *
  * Requirements covered: 1.4, 9.2
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import {
@@ -36,6 +42,12 @@ describe('Error Handling Paths', function () {
   let highlightDiffStub: sinon.SinonStub;
   let mockPanelManagerInstance: any;
   let createPanelManagerStub: sinon.SinonStub;
+
+  // --- child_process mock ---
+  let execFileStub: sinon.SinonStub;
+
+  // --- diff library mock ---
+  let createTwoFilesPatchStub: sinon.SinonStub;
 
   // --- VS Code mocks ---
   let mockContext: any;
@@ -77,6 +89,12 @@ describe('Error Handling Paths', function () {
     };
     createPanelManagerStub = sinon.stub().returns(mockPanelManagerInstance);
 
+    // child_process.execFile mock
+    execFileStub = sinon.stub();
+
+    // diff library mock
+    createTwoFilesPatchStub = sinon.stub();
+
     // Track registered commands
     registeredCommands = {};
     commandsMock = {
@@ -94,9 +112,7 @@ describe('Error Handling Paths', function () {
 
     // Workspace mock
     workspaceMock = {
-      workspaceFolders: [
-        { uri: { fsPath: '/mock/workspace' }, name: 'workspace', index: 0 },
-      ],
+      workspaceFolders: [{ uri: { fsPath: '/mock/workspace' }, name: 'workspace', index: 0 }],
       fs: {
         readFile: sinon.stub().resolves(Buffer.from('# Current Content\n\nSome text.')),
       },
@@ -150,7 +166,7 @@ describe('Error Handling Paths', function () {
 
     // Load the extension module with all mocks injected
     extensionModule = proxyquire('../extension', {
-      'vscode': vscodeMock,
+      vscode: vscodeMock,
       './gitService': {
         createGitService: createGitServiceStub,
         GitError: GitErrorClass,
@@ -169,6 +185,14 @@ describe('Error Handling Paths', function () {
         createPanelManager: createPanelManagerStub,
         '@noCallThru': true,
       },
+      child_process: {
+        execFile: execFileStub,
+        '@noCallThru': true,
+      },
+      diff: {
+        createTwoFilesPatch: createTwoFilesPatchStub,
+        '@noCallThru': true,
+      },
     });
 
     return vscodeMock;
@@ -178,8 +202,8 @@ describe('Error Handling Paths', function () {
     sinon.restore();
   });
 
-  describe('Git not installed error (GIT_NOT_INSTALLED)', function () {
-    it('should show error message when git is not installed', async function () {
+  describe('Git repository not found error', function () {
+    it('should show error message when git repository is not found', async function () {
       const vscodeMock = loadExtensionModule();
       vscodeMock.window.activeTextEditor = {
         document: {
@@ -188,12 +212,15 @@ describe('Error Handling Paths', function () {
         },
       };
 
-      // Simulate GIT_NOT_INSTALLED error
-      mockGitServiceInstance.getDiff.rejects(
-        new GitErrorClass(
-          'Git is not available. Please install Git to use Markdown Diff Visualiser.',
-          'GIT_NOT_INSTALLED'
-        )
+      // findGitRoot fails (execFile for rev-parse returns error)
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(new Error('fatal: not a git repository'), '', 'fatal: not a git repository');
+          } else {
+            callback(null, '', '');
+          }
+        },
       );
 
       extensionModule.activate(mockContext);
@@ -201,20 +228,15 @@ describe('Error Handling Paths', function () {
 
       await handler();
 
-      // Should show error message (not info message)
+      // Should show error message about no git repository
       expect(mockWindow.showErrorMessage.calledOnce).to.be.true;
-      expect(mockWindow.showErrorMessage.firstCall.args[0]).to.include('Git is not available');
+      expect(mockWindow.showErrorMessage.firstCall.args[0]).to.include('git repository');
 
-      // Should log the error to the output channel
-      const logCalls = mockOutputChannel.appendLine.getCalls().map((c: any) => c.args[0]);
-      const hasErrorLog = logCalls.some((msg: string) => msg.includes('Git is not available'));
-      expect(hasErrorLog).to.be.true;
-
-      // Should NOT have opened a panel
+      // Should NOT have opened a panel for preview
       expect(mockPanelManagerInstance.showPreview.called).to.be.false;
     });
 
-    it('should show error message when repository is not found', async function () {
+    it('should show error message when repository is not found (via runPipeline refresh)', async function () {
       const vscodeMock = loadExtensionModule();
       vscodeMock.window.activeTextEditor = {
         document: {
@@ -223,24 +245,55 @@ describe('Error Handling Paths', function () {
         },
       };
 
-      // Simulate NOT_A_REPO error
-      mockGitServiceInstance.getDiff.rejects(
-        new GitErrorClass(
-          'No git repository found for the current workspace.',
-          'NOT_A_REPO'
-        )
+      // First call succeeds (for showChanges → runVersionComparison)
+      // Set up successful initial flow
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            callback(null, '# Old Content', '');
+          } else {
+            callback(null, '', '');
+          }
+        },
       );
+      workspaceMock.fs.readFile.resolves(Buffer.from('# New Content'));
+      createTwoFilesPatchStub.returns(
+        'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-# Old Content\n+# New Content\n',
+      );
+      parseDiffStub.returns([
+        {
+          oldFilePath: 'README.md',
+          newFilePath: 'README.md',
+          hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
+          status: 'modified',
+        },
+      ]);
+      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
-
       await handler();
 
-      expect(mockWindow.showErrorMessage.calledOnce).to.be.true;
-      expect(mockWindow.showErrorMessage.firstCall.args[0]).to.include('git repository');
+      // Now simulate NOT_A_REPO error via runPipeline (refresh path)
+      mockGitServiceInstance.getDiff.rejects(
+        new GitErrorClass('No git repository found for the current workspace.', 'NOT_A_REPO'),
+      );
+
+      const messageHandler = createPanelManagerStub.firstCall.args[1];
+      mockWindow.showErrorMessage.reset();
+
+      // Simulate refresh message — triggers runPipeline
+      messageHandler({ type: 'refresh' });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // runPipeline calls findGitRoot which may fail, or gitService.getDiff which throws GitError
+      // The error message should be shown
+      expect(mockWindow.showErrorMessage.called).to.be.true;
     });
 
-    it('should show info message when file is not tracked', async function () {
+    it('should show info message when file is not tracked (via runPipeline refresh)', async function () {
       const vscodeMock = loadExtensionModule();
       vscodeMock.window.activeTextEditor = {
         document: {
@@ -249,22 +302,52 @@ describe('Error Handling Paths', function () {
         },
       };
 
-      // Simulate FILE_NOT_TRACKED error
-      mockGitServiceInstance.getDiff.rejects(
-        new GitErrorClass(
-          'This file is not tracked by git.',
-          'FILE_NOT_TRACKED'
-        )
+      // Set up successful initial flow
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            callback(null, '# Old Content', '');
+          } else {
+            callback(null, '', '');
+          }
+        },
       );
+      workspaceMock.fs.readFile.resolves(Buffer.from('# New Content'));
+      createTwoFilesPatchStub.returns(
+        'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-# Old Content\n+# New Content\n',
+      );
+      parseDiffStub.returns([
+        {
+          oldFilePath: 'README.md',
+          newFilePath: 'README.md',
+          hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
+          status: 'modified',
+        },
+      ]);
+      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
-
       await handler();
 
-      // FILE_NOT_TRACKED should show info message, not error
-      expect(mockWindow.showInformationMessage.calledOnce).to.be.true;
-      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('not tracked');
+      // Now simulate FILE_NOT_TRACKED error via runPipeline (refresh path)
+      mockGitServiceInstance.getDiff.rejects(
+        new GitErrorClass('This file is not tracked by git.', 'FILE_NOT_TRACKED'),
+      );
+
+      const messageHandler = createPanelManagerStub.firstCall.args[1];
+      mockWindow.showInformationMessage.reset();
+
+      // Simulate refresh message — triggers runPipeline
+      messageHandler({ type: 'refresh' });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(mockWindow.showInformationMessage.called).to.be.true;
+      const infoMessages = mockWindow.showInformationMessage.getCalls().map((c: any) => c.args[0]);
+      const hasNotTrackedMsg = infoMessages.some((msg: string) => msg.includes('not tracked'));
+      expect(hasNotTrackedMsg).to.be.true;
     });
   });
 
@@ -278,8 +361,26 @@ describe('Error Handling Paths', function () {
         },
       };
 
-      // Git returns some text, but parseDiff returns empty (malformed diff)
-      mockGitServiceInstance.getDiff.resolves('this is not a valid diff format');
+      // findGitRoot succeeds
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            callback(null, '# Old Content', '');
+          } else {
+            callback(null, '', '');
+          }
+        },
+      );
+
+      // Different unstaged content
+      workspaceMock.fs.readFile.resolves(Buffer.from('# New Content'));
+
+      // diff library returns a patch
+      createTwoFilesPatchStub.returns('some patch text');
+
+      // parseDiff returns empty (malformed diff)
       parseDiffStub.returns([]);
 
       extensionModule.activate(mockContext);
@@ -287,19 +388,12 @@ describe('Error Handling Paths', function () {
 
       await handler();
 
-      // Should show info message about no changes
+      // Should show info message about no differences
       expect(mockWindow.showInformationMessage.calledOnce).to.be.true;
-      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('No changes found');
+      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('No differences');
 
-      // Should log a warning about parsed diff returning no results
-      const logCalls = mockOutputChannel.appendLine.getCalls().map((c: any) => c.args[0]);
-      const hasWarningLog = logCalls.some(
-        (msg: string) => msg.includes('Parsed diff returned no results')
-      );
-      expect(hasWarningLog).to.be.true;
-
-      // Should NOT have opened a panel
-      expect(mockPanelManagerInstance.showPreview.called).to.be.false;
+      // Should NOT have called highlightDiff
+      expect(highlightDiffStub.called).to.be.false;
     });
   });
 
@@ -313,32 +407,49 @@ describe('Error Handling Paths', function () {
         },
       };
 
-      const rawDiff = 'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n';
-      const mockHunks = [
-        {
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 1,
-          changes: [
-            { type: 'del', content: 'old', oldLineNumber: 1 },
-            { type: 'add', content: 'new', newLineNumber: 1 },
-          ],
+      // findGitRoot succeeds
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            callback(null, '# Old Content', '');
+          } else {
+            callback(null, '', '');
+          }
         },
-      ];
-      const mockDiffResult = {
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: mockHunks,
-        status: 'modified',
-      };
+      );
 
-      mockGitServiceInstance.getDiff.resolves(rawDiff);
-      parseDiffStub.returns([mockDiffResult]);
-      reconstructContentStub.returns({
-        oldContent: '# Old Content',
-        newContent: '# Current Content\n\nSome text.',
-      });
+      // Different unstaged content
+      workspaceMock.fs.readFile.resolves(Buffer.from('# Current Content\n\nSome text.'));
+
+      // diff library returns a valid-looking patch
+      createTwoFilesPatchStub.returns(
+        'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1,3 @@\n-# Old Content\n+# Current Content\n+\n+Some text.\n',
+      );
+
+      // parseDiff returns a valid result
+      parseDiffStub.returns([
+        {
+          oldFilePath: 'README.md',
+          newFilePath: 'README.md',
+          hunks: [
+            {
+              oldStart: 1,
+              oldLines: 1,
+              newStart: 1,
+              newLines: 3,
+              changes: [
+                { type: 'del', content: '# Old Content', oldLineNumber: 1 },
+                { type: 'add', content: '# Current Content', newLineNumber: 1 },
+                { type: 'add', content: '', newLineNumber: 2 },
+                { type: 'add', content: 'Some text.', newLineNumber: 3 },
+              ],
+            },
+          ],
+          status: 'modified',
+        },
+      ]);
 
       // highlightDiff throws an error
       highlightDiffStub.throws(new Error('Rendering engine failure'));
@@ -362,7 +473,8 @@ describe('Error Handling Paths', function () {
       // Should log the rendering error
       const logCalls = mockOutputChannel.appendLine.getCalls().map((c: any) => c.args[0]);
       const hasRenderErrorLog = logCalls.some(
-        (msg: string) => msg.includes('Rendering/highlighting error') && msg.includes('Rendering engine failure')
+        (msg: string) =>
+          msg.includes('Rendering error') && msg.includes('Rendering engine failure'),
       );
       expect(hasRenderErrorLog).to.be.true;
     });
@@ -376,19 +488,51 @@ describe('Error Handling Paths', function () {
         },
       };
 
-      const mockDiffResult = {
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [{ type: 'del', content: 'old', oldLineNumber: 1 }, { type: 'add', content: 'new', newLineNumber: 1 }] }],
-        status: 'modified',
-      };
+      const oldContent = '<script>alert("xss")</script>';
+      const newContent = 'Safe & "clean" content';
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([mockDiffResult]);
-      reconstructContentStub.returns({
-        oldContent: '<script>alert("xss")</script>',
-        newContent: 'Safe & "clean" content',
-      });
+      // findGitRoot succeeds
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            // committed content
+            callback(null, oldContent, '');
+          } else {
+            callback(null, '', '');
+          }
+        },
+      );
+
+      // unstaged content
+      workspaceMock.fs.readFile.resolves(Buffer.from(newContent));
+
+      // diff library returns a patch
+      createTwoFilesPatchStub.returns(
+        'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n',
+      );
+
+      // parseDiff returns a valid result
+      parseDiffStub.returns([
+        {
+          oldFilePath: 'README.md',
+          newFilePath: 'README.md',
+          hunks: [
+            {
+              oldStart: 1,
+              oldLines: 1,
+              newStart: 1,
+              newLines: 1,
+              changes: [
+                { type: 'del', content: 'old', oldLineNumber: 1 },
+                { type: 'add', content: 'new', newLineNumber: 1 },
+              ],
+            },
+          ],
+          status: 'modified',
+        },
+      ]);
 
       // highlightDiff throws
       highlightDiffStub.throws(new Error('Rendering failure'));
@@ -398,9 +542,12 @@ describe('Error Handling Paths', function () {
 
       await handler();
 
+      expect(mockPanelManagerInstance.showPreview.calledOnce).to.be.true;
       const previewData = mockPanelManagerInstance.showPreview.firstCall.args[0];
 
       // HTML special characters should be escaped in the fallback
+      // The old content is the committed version (oldContent)
+      // The new content is the unstaged version (newContent)
       expect(previewData.oldHtml).to.include('&lt;script&gt;');
       expect(previewData.oldHtml).to.include('&lt;/script&gt;');
       expect(previewData.oldHtml).to.include('&quot;xss&quot;');
@@ -426,7 +573,7 @@ describe('Error Handling Paths', function () {
 
       const { createPanelManager: createPanelManagerDirect } = proxyquire(
         '../webviewPanelManager',
-        { vscode: vscodeMock }
+        { vscode: vscodeMock },
       );
 
       const context = createMockExtensionContext();
@@ -481,7 +628,7 @@ describe('Error Handling Paths', function () {
 
       const { createPanelManager: createPanelManagerDirect } = proxyquire(
         '../webviewPanelManager',
-        { vscode: vscodeMock }
+        { vscode: vscodeMock },
       );
 
       const context = createMockExtensionContext();

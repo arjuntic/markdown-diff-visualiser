@@ -3,7 +3,7 @@
  * Reconstructs full old/new file content.
  */
 
-import parseDiffLib = require('parse-diff');
+import parseDiffLib from 'parse-diff';
 
 export interface DiffHunk {
   oldStart: number;
@@ -36,8 +36,7 @@ export interface ReconstructedContent {
  * Detect if a raw diff string contains binary file markers.
  */
 function isBinaryDiff(rawDiff: string): boolean {
-  return /Binary files .* differ/.test(rawDiff) ||
-    /GIT binary patch/.test(rawDiff);
+  return /Binary files .* differ/.test(rawDiff) || /GIT binary patch/.test(rawDiff);
 }
 
 /**
@@ -71,7 +70,7 @@ function cleanPath(path: string | undefined): string {
 function determineStatus(
   file: parseDiffLib.File,
   oldPath: string,
-  newPath: string
+  newPath: string,
 ): 'modified' | 'added' | 'deleted' | 'renamed' {
   if (file.new) {
     return 'added';
@@ -169,7 +168,7 @@ export function parseDiff(rawDiff: string): DiffResult[] {
  */
 export function reconstructContent(
   currentContent: string,
-  hunks: DiffHunk[]
+  hunks: DiffHunk[],
 ): ReconstructedContent {
   if (hunks.length === 0) {
     return { oldContent: currentContent, newContent: currentContent };

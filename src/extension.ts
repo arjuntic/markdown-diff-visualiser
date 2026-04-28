@@ -10,6 +10,7 @@ import { parseDiff, reconstructContent, DiffResult } from './diffParser';
 import { highlightDiff } from './diffHighlighter';
 import { createPanelManager, PanelManager, WebviewMessage } from './webviewPanelManager';
 import { execFile } from 'child_process';
+import * as diffLib from 'diff';
 
 /**
  * Find the git repository root for a given file path.
@@ -80,7 +81,7 @@ async function runPipeline(
   mode: DiffMode,
   context: vscode.ExtensionContext,
   commitSha?: string,
-  changedSectionsOnly?: boolean
+  changedSectionsOnly?: boolean,
 ): Promise<void> {
   const fileName = path.basename(filePath);
 
@@ -151,7 +152,7 @@ async function runPipeline(
   let currentContent: string;
   try {
     const fileUri = vscode.Uri.file(
-      path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath)
+      path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath),
     );
     const fileBytes = await vscode.workspace.fs.readFile(fileUri);
     currentContent = Buffer.from(fileBytes).toString('utf-8');
@@ -166,7 +167,7 @@ async function runPipeline(
     const choice = await vscode.window.showWarningMessage(
       `This file has ${lineCount} lines, which may take a while to render. Render changed sections only?`,
       'Changed Sections Only',
-      'Render Full File'
+      'Render Full File',
     );
     if (choice === 'Changed Sections Only') {
       return runPipeline(filePath, mode, context, commitSha, true);
@@ -189,14 +190,7 @@ async function runPipeline(
     !changedSectionsOnly;
 
   if (shouldRenderIncrementally) {
-    await runIncrementalPipeline(
-      oldContent,
-      newContent,
-      diffResult,
-      fileName,
-      mode,
-      commitSha
-    );
+    await runIncrementalPipeline(oldContent, newContent, diffResult, fileName, mode, commitSha);
   } else {
     // Full rendering for small files
     let highlighted;
@@ -237,7 +231,7 @@ async function runIncrementalPipeline(
   diffResult: DiffResult,
   fileName: string,
   mode: DiffMode,
-  commitSha?: string
+  commitSha?: string,
 ): Promise<void> {
   if (!panelManager) {
     return;
@@ -258,7 +252,9 @@ async function runIncrementalPipeline(
       highlighted = highlightDiff(oldContent, newContent, batchHunks);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      log(`Incremental rendering error (batch ${batchIndex + 1}): ${msg}. Falling back to raw content.`);
+      log(
+        `Incremental rendering error (batch ${batchIndex + 1}): ${msg}. Falling back to raw content.`,
+      );
       highlighted = {
         oldHtml: `<pre>${escapeHtml(oldContent)}</pre>`,
         newHtml: `<pre>${escapeHtml(newContent)}</pre>`,
@@ -313,18 +309,16 @@ function escapeHtml(text: string): string {
 async function getFileAtVersion(
   filePath: string,
   version: string,
-  gitRoot: string
+  gitRoot: string,
 ): Promise<string> {
-  const relativePath = path.isAbsolute(filePath)
-    ? path.relative(gitRoot, filePath)
-    : filePath;
+  const relativePath = path.isAbsolute(filePath) ? path.relative(gitRoot, filePath) : filePath;
   const gitPath = relativePath.split(path.sep).join('/');
 
   if (version === 'unstaged') {
     // Read from the working tree
     try {
       const fileUri = vscode.Uri.file(
-        path.isAbsolute(filePath) ? filePath : path.join(gitRoot, filePath)
+        path.isAbsolute(filePath) ? filePath : path.join(gitRoot, filePath),
       );
       const fileBytes = await vscode.workspace.fs.readFile(fileUri);
       return Buffer.from(fileBytes).toString('utf-8');
@@ -333,26 +327,47 @@ async function getFileAtVersion(
     }
   } else if (version === 'staged') {
     // Read from the git index (staged)
-    return new Promise((resolve, reject) => {
-      execFile('git', ['show', `:${gitPath}`], { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
-        if (error) {
-          // If not staged, fall back to HEAD
-          execFile('git', ['show', `HEAD:${gitPath}`], { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 }, (err2, stdout2) => {
-            if (err2) { resolve(''); return; }
-            resolve(stdout2);
-          });
-          return;
-        }
-        resolve(stdout);
-      });
+    return new Promise((resolve, _reject) => {
+      execFile(
+        'git',
+        ['show', `:${gitPath}`],
+        { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 },
+        (error, stdout) => {
+          if (error) {
+            // If not staged, fall back to HEAD
+            execFile(
+              'git',
+              ['show', `HEAD:${gitPath}`],
+              { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 },
+              (err2, stdout2) => {
+                if (err2) {
+                  resolve('');
+                  return;
+                }
+                resolve(stdout2);
+              },
+            );
+            return;
+          }
+          resolve(stdout);
+        },
+      );
     });
   } else {
     // 'committed' — read from HEAD
-    return new Promise((resolve, reject) => {
-      execFile('git', ['show', `HEAD:${gitPath}`], { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
-        if (error) { resolve(''); return; }
-        resolve(stdout);
-      });
+    return new Promise((resolve, _reject) => {
+      execFile(
+        'git',
+        ['show', `HEAD:${gitPath}`],
+        { cwd: gitRoot, maxBuffer: 10 * 1024 * 1024 },
+        (error, stdout) => {
+          if (error) {
+            resolve('');
+            return;
+          }
+          resolve(stdout);
+        },
+      );
     });
   }
 }
@@ -364,7 +379,7 @@ async function runVersionComparison(
   filePath: string,
   leftVersion: string,
   rightVersion: string,
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
 ): Promise<void> {
   const fileName = path.basename(filePath);
 
@@ -392,17 +407,18 @@ async function runVersionComparison(
       fileStatus: 'modified',
       diffMode: 'unstaged',
     });
-    vscode.window.showInformationMessage(`No differences between ${leftVersion} and ${rightVersion} for ${fileName}`);
+    vscode.window.showInformationMessage(
+      `No differences between ${leftVersion} and ${rightVersion} for ${fileName}`,
+    );
     return;
   }
 
   // Use diff library to compute the diff between the two versions
-  const diffLib = require('diff');
   const rawPatch: string = diffLib.createTwoFilesPatch(
     `a/${fileName}`,
     `b/${fileName}`,
     leftContent,
-    rightContent
+    rightContent,
   );
 
   // Add git diff header for parse-diff compatibility
@@ -422,7 +438,9 @@ async function runVersionComparison(
       fileStatus: 'modified',
       diffMode: 'unstaged',
     });
-    vscode.window.showInformationMessage(`No differences found between ${leftVersion} and ${rightVersion} for ${fileName}`);
+    vscode.window.showInformationMessage(
+      `No differences found between ${leftVersion} and ${rightVersion} for ${fileName}`,
+    );
     return;
   }
 
@@ -508,7 +526,7 @@ function setupFileWatcher(filePath: string, context: vscode.ExtensionContext): v
 
   const pattern = new vscode.RelativePattern(
     path.dirname(absolutePath),
-    path.basename(absolutePath)
+    path.basename(absolutePath),
   );
 
   const watcher = vscode.workspace.createFileSystemWatcher(pattern);
@@ -554,7 +572,9 @@ export function activate(context: vscode.ExtensionContext): void {
         // Invoked from command palette or editor context menu
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-          vscode.window.showInformationMessage('No active editor found. Open a markdown file first.');
+          vscode.window.showInformationMessage(
+            'No active editor found. Open a markdown file first.',
+          );
           return;
         }
         filePath = editor.document.uri.fsPath;
@@ -580,7 +600,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
       // Set up file watcher for auto-refresh
       setupFileWatcher(filePath, context);
-    }
+    },
   );
 
   context.subscriptions.push(showChangesCommand);

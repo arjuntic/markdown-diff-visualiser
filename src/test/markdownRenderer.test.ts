@@ -99,9 +99,12 @@ describe('Markdown Renderer', function () {
     it('should render fenced code blocks', function () {
       const md = '```javascript\nconst x = 1;\n```';
       const html = renderer.render(md);
-      expect(html).to.contain('<pre>');
+      expect(html).to.contain('<pre class="hljs">');
       expect(html).to.contain('<code');
-      expect(html).to.contain('const x = 1;');
+      // highlight.js wraps keywords/numbers in spans, so check for the parts
+      expect(html).to.contain('const');
+      expect(html).to.contain('x = ');
+      expect(html).to.contain('1');
     });
   });
 

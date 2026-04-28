@@ -11,7 +11,6 @@ import { expect } from 'chai';
 import { parseDiff } from '../diffParser';
 
 describe('Diff Parser - parseDiff', function () {
-
   it('should parse a simple single-hunk diff and verify structure', function () {
     const rawDiff = [
       'diff --git a/README.md b/README.md',

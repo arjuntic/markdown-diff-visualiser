@@ -82,7 +82,7 @@ function resolveImagePaths(html: string, basePath: string): string {
     (_match, prefix: string, src: string, suffix: string) => {
       const resolved = path.posix.join(basePath, src);
       return `${prefix}${resolved}${suffix}`;
-    }
+    },
   );
 }
 
@@ -92,14 +92,20 @@ export function createRenderer(options?: RendererOptions): MarkdownRenderer {
   function highlightCode(str: string, lang: string): string {
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return '<pre class="hljs"><code>' +
+        return (
+          '<pre class="hljs"><code>' +
           hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
-          '</code></pre>';
+          '</code></pre>'
+        );
       } catch {
         // fall through to default
       }
     }
-    const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const escaped = str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
     return '<pre class="hljs"><code>' + escaped + '</code></pre>';
   }
 

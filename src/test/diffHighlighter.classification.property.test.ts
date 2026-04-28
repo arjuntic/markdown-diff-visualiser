@@ -17,7 +17,6 @@ import * as fc from 'fast-check';
 import { highlightDiff } from '../diffHighlighter';
 import { parseDiff } from '../diffParser';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const diffLib = require('diff');
 
 /**
@@ -25,12 +24,7 @@ const diffLib = require('diff');
  * Prepends the `diff --git` header that parse-diff expects.
  */
 function createGitDiff(oldText: string, newText: string): string {
-  const rawPatch: string = diffLib.createTwoFilesPatch(
-    'a/test.md',
-    'b/test.md',
-    oldText,
-    newText
-  );
+  const rawPatch: string = diffLib.createTwoFilesPatch('a/test.md', 'b/test.md', oldText, newText);
   const lines = rawPatch.split('\n');
   lines[0] = 'diff --git a/test.md b/test.md';
   return lines.join('\n');
@@ -42,7 +36,7 @@ function createGitDiff(oldText: string, newText: string): string {
  */
 const lineArb = fc.stringOf(
   fc.char().filter((c) => c !== '\n' && c !== '\r'),
-  { minLength: 1, maxLength: 60 }
+  { minLength: 1, maxLength: 60 },
 );
 
 /**
@@ -57,9 +51,7 @@ const textArb = fc
  * Arbitrary that generates a pair of old/new texts that are different.
  * This ensures the diff will contain at least one hunk.
  */
-const diffPairArb = fc
-  .tuple(textArb, textArb)
-  .filter(([oldText, newText]) => oldText !== newText);
+const diffPairArb = fc.tuple(textArb, textArb).filter(([oldText, newText]) => oldText !== newText);
 
 describe('Feature: markdown-diff-visualiser, Property 5: Highlight classification correctness', function () {
   this.timeout(60000);
@@ -92,13 +84,13 @@ describe('Feature: markdown-diff-visualiser, Property 5: Highlight classificatio
 
         expect(
           hasAddedBlock || hasRemovedBlock,
-          'When old and new content differ, at least one highlight class (diff-added-block or diff-removed-block) must appear in the output'
+          'When old and new content differ, at least one highlight class (diff-added-block or diff-removed-block) must appear in the output',
         ).to.be.true;
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -119,13 +111,13 @@ describe('Feature: markdown-diff-visualiser, Property 5: Highlight classificatio
 
         expect(
           highlighted.newHtml.includes('diff-added-block'),
-          'Fully added file: new HTML must contain diff-added-block class'
+          'Fully added file: new HTML must contain diff-added-block class',
         ).to.be.true;
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -146,13 +138,13 @@ describe('Feature: markdown-diff-visualiser, Property 5: Highlight classificatio
 
         expect(
           highlighted.oldHtml.includes('diff-removed-block'),
-          'Fully deleted file: old HTML must contain diff-removed-block class'
+          'Fully deleted file: old HTML must contain diff-removed-block class',
         ).to.be.true;
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 });

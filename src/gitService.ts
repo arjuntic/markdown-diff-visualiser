@@ -30,7 +30,12 @@ export interface GitService {
 export class GitError extends Error {
   constructor(
     message: string,
-    public readonly code: 'GIT_NOT_INSTALLED' | 'NOT_A_REPO' | 'FILE_NOT_TRACKED' | 'NO_CHANGES' | 'COMMAND_FAILED'
+    public readonly code:
+      | 'GIT_NOT_INSTALLED'
+      | 'NOT_A_REPO'
+      | 'FILE_NOT_TRACKED'
+      | 'NO_CHANGES'
+      | 'COMMAND_FAILED',
   ) {
     super(message);
     this.name = 'GitError';
@@ -48,36 +53,29 @@ function execGit(args: string[], cwd: string): Promise<string> {
 
         // Git not installed or not in PATH
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          reject(new GitError(
-            'Git is not available. Please install Git to use Markdown Diff Visualiser.',
-            'GIT_NOT_INSTALLED'
-          ));
+          reject(
+            new GitError(
+              'Git is not available. Please install Git to use Markdown Diff Visualiser.',
+              'GIT_NOT_INSTALLED',
+            ),
+          );
           return;
         }
 
         // Not a git repository
         if (message.includes('not a git repository')) {
-          reject(new GitError(
-            'No git repository found for the current workspace.',
-            'NOT_A_REPO'
-          ));
+          reject(new GitError('No git repository found for the current workspace.', 'NOT_A_REPO'));
           return;
         }
 
         // File not tracked / path does not exist
         if (message.includes('does not exist') || message.includes('did not match any file')) {
-          reject(new GitError(
-            'This file is not tracked by git.',
-            'FILE_NOT_TRACKED'
-          ));
+          reject(new GitError('This file is not tracked by git.', 'FILE_NOT_TRACKED'));
           return;
         }
 
         // Generic command failure
-        reject(new GitError(
-          `Git command failed: ${message}`,
-          'COMMAND_FAILED'
-        ));
+        reject(new GitError(`Git command failed: ${message}`, 'COMMAND_FAILED'));
         return;
       }
 
@@ -91,11 +89,16 @@ function execGit(args: string[], cwd: string): Promise<string> {
  */
 function parseFileStatus(statusLetter: string): 'modified' | 'added' | 'deleted' | 'renamed' {
   switch (statusLetter.charAt(0)) {
-    case 'A': return 'added';
-    case 'D': return 'deleted';
-    case 'R': return 'renamed';
-    case 'M': return 'modified';
-    default: return 'modified';
+    case 'A':
+      return 'added';
+    case 'D':
+      return 'deleted';
+    case 'R':
+      return 'renamed';
+    case 'M':
+      return 'modified';
+    default:
+      return 'modified';
   }
 }
 
@@ -136,10 +139,7 @@ export function createGitService(workspaceRoot: string, commitSha?: string): Git
         case 'commit': {
           const sha = commitSha;
           if (!sha) {
-            throw new GitError(
-              'Commit SHA is required for commit mode.',
-              'COMMAND_FAILED'
-            );
+            throw new GitError('Commit SHA is required for commit mode.', 'COMMAND_FAILED');
           }
           args = ['diff', `${sha}~1`, sha, '--', relativePath];
           break;
@@ -185,10 +185,7 @@ export function createGitService(workspaceRoot: string, commitSha?: string): Git
         case 'commit': {
           const sha = commitSha;
           if (!sha) {
-            throw new GitError(
-              'Commit SHA is required for commit mode.',
-              'COMMAND_FAILED'
-            );
+            throw new GitError('Commit SHA is required for commit mode.', 'COMMAND_FAILED');
           }
           args = ['diff', `${sha}~1`, sha, '--name-status'];
           break;
@@ -196,7 +193,10 @@ export function createGitService(workspaceRoot: string, commitSha?: string): Git
       }
 
       const output = await execGit(args, workspaceRoot);
-      const lines = output.trim().split('\n').filter(line => line.length > 0);
+      const lines = output
+        .trim()
+        .split('\n')
+        .filter((line) => line.length > 0);
       const changedFiles: ChangedFile[] = [];
 
       for (const line of lines) {

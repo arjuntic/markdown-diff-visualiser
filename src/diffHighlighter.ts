@@ -41,7 +41,7 @@ function escapeHtml(text: string): string {
 export function computeBlockDiffs(
   oldLines: string[],
   newLines: string[],
-  hunks: DiffHunk[]
+  hunks: DiffHunk[],
 ): BlockDiff[] {
   if (hunks.length === 0) {
     // No changes — everything is unchanged
@@ -49,11 +49,13 @@ export function computeBlockDiffs(
     if (allLines.length === 0) {
       return [];
     }
-    return [{
-      type: 'unchanged',
-      oldLines: [...oldLines],
-      newLines: [...newLines],
-    }];
+    return [
+      {
+        type: 'unchanged',
+        oldLines: [...oldLines],
+        newLines: [...newLines],
+      },
+    ];
   }
 
   const blocks: BlockDiff[] = [];
@@ -189,7 +191,7 @@ export function computeBlockDiffs(
  */
 export function computeWordDiff(
   oldText: string,
-  newText: string
+  newText: string,
 ): { oldAnnotated: string; newAnnotated: string } {
   if (oldText === newText) {
     return {
@@ -242,7 +244,7 @@ function wrapBlock(html: string, className: string): string {
 export function highlightDiff(
   oldMarkdown: string,
   newMarkdown: string,
-  hunks: DiffHunk[]
+  hunks: DiffHunk[],
 ): HighlightedDiff {
   const renderer = createRenderer();
 
@@ -278,8 +280,8 @@ export function highlightDiff(
   // Compute block-level diffs
   const blocks = computeBlockDiffs(oldLines, newLines, hunks);
 
-  let oldHtmlParts: string[] = [];
-  let newHtmlParts: string[] = [];
+  const oldHtmlParts: string[] = [];
+  const newHtmlParts: string[] = [];
 
   for (const block of blocks) {
     const oldBlockMd = block.oldLines.join('\n');
@@ -305,7 +307,6 @@ export function highlightDiff(
       }
       case 'modified': {
         // For modified blocks, apply word-level diffs
-        const { oldAnnotated, newAnnotated } = computeWordDiff(oldBlockMd, newBlockMd);
         // Render the markdown first, then apply word-level annotations
         // Since word diff operates on raw text, we render the markdown and also
         // provide word-level annotated versions
@@ -316,14 +317,18 @@ export function highlightDiff(
         // content with annotated versions within the block wrapper
         // For modified blocks, we wrap the rendered HTML with the block class
         // and include word-level annotations as a secondary layer
-        oldHtmlParts.push(wrapBlock(
-          applyWordDiffToHtml(oldRendered, oldBlockMd, newBlockMd, 'old'),
-          'diff-removed-block'
-        ));
-        newHtmlParts.push(wrapBlock(
-          applyWordDiffToHtml(newRendered, oldBlockMd, newBlockMd, 'new'),
-          'diff-added-block'
-        ));
+        oldHtmlParts.push(
+          wrapBlock(
+            applyWordDiffToHtml(oldRendered, oldBlockMd, newBlockMd, 'old'),
+            'diff-removed-block',
+          ),
+        );
+        newHtmlParts.push(
+          wrapBlock(
+            applyWordDiffToHtml(newRendered, oldBlockMd, newBlockMd, 'new'),
+            'diff-added-block',
+          ),
+        );
         break;
       }
     }
@@ -349,14 +354,11 @@ function applyWordDiffToHtml(
   renderedHtml: string,
   oldText: string,
   newText: string,
-  side: 'old' | 'new'
+  side: 'old' | 'new',
 ): string {
   const dmp = new DiffMatchPatch();
   const diffs = dmp.diff_main(oldText, newText);
   dmp.diff_cleanupSemantic(diffs);
-
-  // Extract the plain text from the rendered HTML for matching
-  const plainText = stripHtmlTags(renderedHtml);
 
   // Build annotated plain text
   let annotatedText = '';
@@ -427,7 +429,6 @@ function replaceTextInHtml(html: string, annotatedText: string): string {
 function extractAnnotatedSegment(annotatedText: string, startIdx: number, length: number): string {
   let plainCount = 0;
   let i = 0;
-  let startPos = -1;
 
   // Find the start position in annotated text
   while (i < annotatedText.length && plainCount < startIdx) {
@@ -442,7 +443,7 @@ function extractAnnotatedSegment(annotatedText: string, startIdx: number, length
       i++;
     }
   }
-  startPos = i;
+  const startPos = i;
 
   // Find the end position
   let consumed = 0;

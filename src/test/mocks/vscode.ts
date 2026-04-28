@@ -72,18 +72,20 @@ export function createMockWebviewPanel(): any {
     webview,
     visible: true,
     viewColumn: ViewColumn.One,
-    onDidDispose: sinon.stub().callsFake((listener: Function, _thisArg?: any, disposables?: any[]) => {
-      onDidDisposeListeners.push(listener);
-      const disposable = { dispose: sinon.stub() };
-      if (disposables) {
-        disposables.push(disposable);
-      }
-      return disposable;
-    }),
+    onDidDispose: sinon
+      .stub()
+      .callsFake((listener: Function, _thisArg?: any, disposables?: any[]) => {
+        onDidDisposeListeners.push(listener);
+        const disposable = { dispose: sinon.stub() };
+        if (disposables) {
+          disposables.push(disposable);
+        }
+        return disposable;
+      }),
     reveal: sinon.stub(),
     dispose: sinon.stub().callsFake(() => {
       // Trigger onDidDispose listeners when panel is disposed
-      onDidDisposeListeners.forEach(fn => fn());
+      onDidDisposeListeners.forEach((fn) => fn());
     }),
     // Test helper to access dispose listeners
     _onDidDisposeListeners: onDidDisposeListeners,
@@ -129,14 +131,16 @@ export function _resetThemeChangeListeners(): void {
 
 export const window = {
   createWebviewPanel: sinon.stub(),
-  onDidChangeActiveColorTheme: sinon.stub().callsFake((listener: Function, _thisArg?: any, disposables?: any[]) => {
-    themeChangeListeners.push(listener);
-    const disposable = { dispose: sinon.stub() };
-    if (disposables) {
-      disposables.push(disposable);
-    }
-    return disposable;
-  }),
+  onDidChangeActiveColorTheme: sinon
+    .stub()
+    .callsFake((listener: Function, _thisArg?: any, disposables?: any[]) => {
+      themeChangeListeners.push(listener);
+      const disposable = { dispose: sinon.stub() };
+      if (disposables) {
+        disposables.push(disposable);
+      }
+      return disposable;
+    }),
   showErrorMessage: sinon.stub(),
   showInformationMessage: sinon.stub(),
   showWarningMessage: sinon.stub(),

@@ -8,7 +8,7 @@
  */
 
 import { expect } from 'chai';
-import { highlightDiff, computeBlockDiffs, computeWordDiff, BlockDiff } from '../diffHighlighter';
+import { highlightDiff, computeBlockDiffs, computeWordDiff } from '../diffHighlighter';
 import { DiffHunk, DiffChange } from '../diffParser';
 
 /**
@@ -19,13 +19,12 @@ function makeHunk(
   oldLines: number,
   newStart: number,
   newLines: number,
-  changes: DiffChange[]
+  changes: DiffChange[],
 ): DiffHunk {
   return { oldStart, oldLines, newStart, newLines, changes };
 }
 
 describe('Diff Highlighter - highlightDiff', function () {
-
   it('should highlight a fully added block with diff-added-block class on new pane', function () {
     // A hunk that adds two lines after line 2 of the old file
     const oldMarkdown = '# Title\n\nExisting paragraph.';
@@ -157,7 +156,6 @@ describe('Diff Highlighter - highlightDiff', function () {
 });
 
 describe('Diff Highlighter - computeBlockDiffs', function () {
-
   it('should classify added lines as type "added"', function () {
     const oldLines = ['line1', 'line2'];
     const newLines = ['line1', 'inserted', 'line2'];
@@ -233,7 +231,6 @@ describe('Diff Highlighter - computeBlockDiffs', function () {
 });
 
 describe('Diff Highlighter - computeWordDiff', function () {
-
   it('should annotate changed words with diff-removed-word and diff-added-word', function () {
     const result = computeWordDiff('Hello world', 'Hello universe');
 

@@ -20,9 +20,7 @@ import { computeWordDiff } from '../diffHighlighter';
  * returning only the plain text content.
  */
 function stripDiffSpans(html: string): string {
-  return html
-    .replace(/<span class="diff-(added|removed)-word">/g, '')
-    .replace(/<\/span>/g, '');
+  return html.replace(/<span class="diff-(added|removed)-word">/g, '').replace(/<\/span>/g, '');
 }
 
 /**
@@ -82,8 +80,20 @@ function unescapeHtml(text: string): string {
  * Arbitrary that generates a word (no whitespace, no HTML special chars to keep things simple).
  */
 const wordArb = fc.stringOf(
-  fc.char().filter((c) => c !== ' ' && c !== '\n' && c !== '\r' && c !== '\t' && c !== '<' && c !== '>' && c !== '&' && c !== '"'),
-  { minLength: 1, maxLength: 10 }
+  fc
+    .char()
+    .filter(
+      (c) =>
+        c !== ' ' &&
+        c !== '\n' &&
+        c !== '\r' &&
+        c !== '\t' &&
+        c !== '<' &&
+        c !== '>' &&
+        c !== '&' &&
+        c !== '"',
+    ),
+  { minLength: 1, maxLength: 10 },
 );
 
 /**
@@ -101,7 +111,7 @@ const similarPairArb = fc
   .tuple(
     fc.array(wordArb, { minLength: 2, maxLength: 10 }),
     fc.array(wordArb, { minLength: 1, maxLength: 5 }),
-    fc.nat({ max: 100 })
+    fc.nat({ max: 100 }),
   )
   .map(([baseWords, replacementWords, seed]) => {
     const oldWords = [...baseWords];
@@ -117,9 +127,7 @@ const similarPairArb = fc
 /**
  * Arbitrary that generates two completely different sentences.
  */
-const diffPairArb = fc
-  .tuple(sentenceArb, sentenceArb)
-  .filter(([a, b]) => a !== b);
+const diffPairArb = fc.tuple(sentenceArb, sentenceArb).filter(([a, b]) => a !== b);
 
 describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precision', function () {
   this.timeout(60000);
@@ -137,7 +145,7 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
           if (plain.length > 0) {
             expect(
               oldText.includes(plain),
-              `Unchanged segment "${plain}" in old annotated output must appear in original old text`
+              `Unchanged segment "${plain}" in old annotated output must appear in original old text`,
             ).to.be.true;
           }
         }
@@ -149,7 +157,7 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
           if (plain.length > 0) {
             expect(
               newText.includes(plain),
-              `Unchanged segment "${plain}" in new annotated output must appear in original new text`
+              `Unchanged segment "${plain}" in new annotated output must appear in original new text`,
             ).to.be.true;
           }
         }
@@ -157,7 +165,7 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -176,7 +184,7 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
           .replace(/"/g, '&quot;');
         expect(strippedOld).to.equal(
           expectedOld,
-          'Stripping diff spans from old annotated output should recover the HTML-escaped old text'
+          'Stripping diff spans from old annotated output should recover the HTML-escaped old text',
         );
 
         // Same for new side
@@ -188,13 +196,13 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
           .replace(/"/g, '&quot;');
         expect(strippedNew).to.equal(
           expectedNew,
-          'Stripping diff spans from new annotated output should recover the HTML-escaped new text'
+          'Stripping diff spans from new annotated output should recover the HTML-escaped new text',
         );
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -212,7 +220,7 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -227,13 +235,13 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
 
         expect(
           hasRemovedWord || hasAddedWord,
-          'Non-identical strings must produce at least one highlight span'
+          'Non-identical strings must produce at least one highlight span',
         ).to.be.true;
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -251,13 +259,13 @@ describe('Feature: markdown-diff-visualiser, Property 6: Word-level diff precisi
 
         expect(unchangedOldJoined).to.equal(
           unchangedNewJoined,
-          'Concatenated unchanged text should be identical on both old and new sides'
+          'Concatenated unchanged text should be identical on both old and new sides',
         );
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 });

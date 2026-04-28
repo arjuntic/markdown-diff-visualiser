@@ -14,7 +14,6 @@ import { expect } from 'chai';
 import * as fc from 'fast-check';
 import { parseDiff, reconstructContent } from '../diffParser';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const diffLib = require('diff');
 
 /**
@@ -22,12 +21,7 @@ const diffLib = require('diff');
  * Prepends the `diff --git` header that parse-diff expects.
  */
 function createGitDiff(oldText: string, newText: string): string {
-  const rawPatch: string = diffLib.createTwoFilesPatch(
-    'a/test.md',
-    'b/test.md',
-    oldText,
-    newText
-  );
+  const rawPatch: string = diffLib.createTwoFilesPatch('a/test.md', 'b/test.md', oldText, newText);
   // Replace the `===...` separator line with a `diff --git` header
   // so that parse-diff recognizes the format.
   const lines = rawPatch.split('\n');
@@ -42,7 +36,7 @@ function createGitDiff(oldText: string, newText: string): string {
  */
 const lineArb = fc.stringOf(
   fc.char().filter((c) => c !== '\n' && c !== '\r'),
-  { minLength: 0, maxLength: 80 }
+  { minLength: 0, maxLength: 80 },
 );
 
 /**
@@ -59,9 +53,7 @@ const textArb = fc
  * Arbitrary that generates a pair of old/new texts that are different.
  * This ensures the diff will contain at least one hunk.
  */
-const diffPairArb = fc
-  .tuple(textArb, textArb)
-  .filter(([oldText, newText]) => oldText !== newText);
+const diffPairArb = fc.tuple(textArb, textArb).filter(([oldText, newText]) => oldText !== newText);
 
 describe('Feature: markdown-diff-visualiser, Property 1: Diff parse and reconstruct round-trip', function () {
   this.timeout(60000);
@@ -76,12 +68,18 @@ describe('Feature: markdown-diff-visualiser, Property 1: Diff parse and reconstr
         const results = parseDiff(gitDiff);
 
         // The diff should parse into exactly one file result
-        expect(results).to.have.lengthOf(1, 'Expected exactly one DiffResult from single-file diff');
+        expect(results).to.have.lengthOf(
+          1,
+          'Expected exactly one DiffResult from single-file diff',
+        );
 
         const diffResult = results[0];
 
         // Should have at least one hunk since old !== new
-        expect(diffResult.hunks.length).to.be.greaterThan(0, 'Expected at least one hunk for differing texts');
+        expect(diffResult.hunks.length).to.be.greaterThan(
+          0,
+          'Expected at least one hunk for differing texts',
+        );
 
         // Step 3: Reconstruct content using the new text and parsed hunks
         const reconstructed = reconstructContent(newText, diffResult.hunks);
@@ -89,17 +87,17 @@ describe('Feature: markdown-diff-visualiser, Property 1: Diff parse and reconstr
         // Step 4: Verify round-trip
         expect(reconstructed.newContent).to.equal(
           newText,
-          'Reconstructed new content must match original new text'
+          'Reconstructed new content must match original new text',
         );
         expect(reconstructed.oldContent).to.equal(
           oldText,
-          'Reconstructed old content must match original old text'
+          'Reconstructed old content must match original old text',
         );
       }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 });

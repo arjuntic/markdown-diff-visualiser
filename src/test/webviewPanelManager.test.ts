@@ -7,7 +7,6 @@
  * Requirements covered: 3.1, 7.1, 7.2, 9.2
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import {
@@ -152,7 +151,10 @@ describe('Webview Panel Manager', function () {
 
     it('should handle all file statuses correctly', function () {
       const statuses: Array<'modified' | 'added' | 'deleted' | 'renamed'> = [
-        'modified', 'added', 'deleted', 'renamed',
+        'modified',
+        'added',
+        'deleted',
+        'renamed',
       ];
 
       for (const status of statuses) {
@@ -357,7 +359,7 @@ describe('Webview Panel Manager', function () {
       const listeners = _getThemeChangeListeners();
       expect(listeners.length).to.be.greaterThan(0);
 
-      listeners.forEach(fn => fn({ kind: ColorThemeKind.Light }));
+      listeners.forEach((fn) => fn({ kind: ColorThemeKind.Light }));
 
       expect(mockPanel.webview.postMessage.calledOnce).to.be.true;
       const message = mockPanel.webview.postMessage.firstCall.args[0];
@@ -379,7 +381,7 @@ describe('Webview Panel Manager', function () {
       mockPanel.webview.postMessage.resetHistory();
 
       const listeners = _getThemeChangeListeners();
-      listeners.forEach(fn => fn({ kind: ColorThemeKind.Dark }));
+      listeners.forEach((fn) => fn({ kind: ColorThemeKind.Dark }));
 
       const message = mockPanel.webview.postMessage.firstCall.args[0];
       expect(message.type).to.equal('themeChanged');
@@ -400,7 +402,7 @@ describe('Webview Panel Manager', function () {
       mockPanel.webview.postMessage.resetHistory();
 
       const listeners = _getThemeChangeListeners();
-      listeners.forEach(fn => fn({ kind: ColorThemeKind.HighContrast }));
+      listeners.forEach((fn) => fn({ kind: ColorThemeKind.HighContrast }));
 
       const message = mockPanel.webview.postMessage.firstCall.args[0];
       expect(message.type).to.equal('themeChanged');
@@ -421,7 +423,7 @@ describe('Webview Panel Manager', function () {
       mockPanel.webview.postMessage.resetHistory();
 
       const listeners = _getThemeChangeListeners();
-      listeners.forEach(fn => fn({ kind: ColorThemeKind.HighContrastLight }));
+      listeners.forEach((fn) => fn({ kind: ColorThemeKind.HighContrastLight }));
 
       const message = mockPanel.webview.postMessage.firstCall.args[0];
       expect(message.type).to.equal('themeChanged');
@@ -429,14 +431,14 @@ describe('Webview Panel Manager', function () {
     });
 
     it('should not send themeChanged when panel is not open', function () {
-      const manager = createPanelManager(mockContext);
+      const _manager = createPanelManager(mockContext);
 
       // Don't open a panel — just trigger theme change
       const listeners = _getThemeChangeListeners();
 
       // postMessage should not be called since there's no panel
       // (the listener checks if panel exists before posting)
-      listeners.forEach(fn => fn({ kind: ColorThemeKind.Dark }));
+      listeners.forEach((fn) => fn({ kind: ColorThemeKind.Dark }));
 
       // No panel was created, so postMessage was never called
       expect(mockPanel.webview.postMessage.called).to.be.false;

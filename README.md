@@ -4,7 +4,9 @@
 
 Stop squinting at `+`/`-` lines in git diffs. This VS Code extension shows you a beautiful side-by-side rendered preview of markdown changes, with green/red highlights on exactly what was added or removed.
 
-![Markdown Diff Visualiser](https://img.shields.io/badge/vscode-extension-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Version](https://img.shields.io/badge/version-0.0.1-orange)
+[![CI](https://github.com/arjun-staticvar/markdown-diff-visualiser/actions/workflows/ci.yml/badge.svg)](https://github.com/arjun-staticvar/markdown-diff-visualiser/actions/workflows/ci.yml)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/arjun-staticvar.markdown-diff-visualiser)](https://marketplace.visualstudio.com/items?itemName=arjun-staticvar.markdown-diff-visualiser)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## The Problem
 
@@ -60,7 +62,7 @@ See the extension in action:
 ### From Source
 
 ```bash
-git clone https://github.com/your-username/markdown-diff-visualiser.git
+git clone https://github.com/arjun-staticvar/markdown-diff-visualiser.git
 cd markdown-diff-visualiser
 npm install
 npm run bundle
@@ -248,13 +250,109 @@ No configuration needed. It just works.
 - Relative image paths in markdown are resolved against the workspace root, not the file's directory
 - The extension compares file content, not rendered output — so CSS-only changes won't show up
 
+## AI Agent Integration
+
+This extension ships with built-in skills for AI coding assistants. When an agent modifies markdown files, it will automatically suggest previewing the rendered diff.
+
+### Claude Code
+
+The repo includes a ready-to-use skill and slash command. To add it to any project:
+
+**Option A — Clone this repo (skill is included automatically):**
+
+```bash
+git clone https://github.com/arjun-staticvar/markdown-diff-visualiser.git
+# The .claude/ directory contains the skill — Claude Code picks it up automatically
+```
+
+**Option B — Add the skill to an existing project:**
+
+1. Copy the skill directory into your project:
+
+   ```bash
+   mkdir -p .claude/skills/markdown-diff-review
+   cp /path/to/markdown-diff-visualiser/.claude/skills/markdown-diff-review/SKILL.md \
+      .claude/skills/markdown-diff-review/
+   ```
+
+2. Copy the slash command:
+
+   ```bash
+   mkdir -p .claude/commands
+   cp /path/to/markdown-diff-visualiser/.claude/commands/markdown-diff-review.md \
+      .claude/commands/
+   ```
+
+3. Make sure the extension is installed in VS Code, then use it:
+
+   ```
+   /markdown-diff-review README.md
+   ```
+
+Claude will also automatically suggest the diff preview whenever it edits `.md` files.
+
+### Codex (OpenAI)
+
+Codex reads `AGENTS.md` at the repo root. To add the skill to any project:
+
+1. Copy `AGENTS.md` to your project root:
+
+   ```bash
+   cp /path/to/markdown-diff-visualiser/AGENTS.md .
+   ```
+
+2. Or add this block to your existing `AGENTS.md`:
+
+   ```markdown
+   ## After Modifying Markdown
+
+   After editing any `.md` or `.markdown` file, suggest the user preview the rendered diff:
+   - VS Code: Cmd+Shift+P → "Markdown Diff Visualiser: Show Changes"
+   - Terminal: node scripts/preview-diff.js <file>
+   ```
+
+3. Make sure the extension is installed in VS Code. Codex will now suggest previews after markdown edits.
+
+### Gemini
+
+Gemini reads `GEMINI.md` at the repo root. To add the skill to any project:
+
+1. Copy `GEMINI.md` to your project root:
+
+   ```bash
+   cp /path/to/markdown-diff-visualiser/GEMINI.md .
+   ```
+
+2. Or add this block to your existing `GEMINI.md`:
+
+   ```markdown
+   ## After Modifying Markdown
+
+   After editing any `.md` or `.markdown` file, suggest the user preview the rendered diff:
+   - VS Code: Cmd+Shift+P → "Markdown Diff Visualiser: Show Changes"
+   - Terminal: node scripts/preview-diff.js <file>
+   ```
+
+3. Make sure the extension is installed in VS Code. Gemini will now suggest previews after markdown edits.
+
+### Browser Preview (Any Agent)
+
+The `scripts/preview-diff.js` script works from any terminal — no VS Code required:
+
+```bash
+node scripts/preview-diff.js README.md                       # committed vs unstaged (default)
+node scripts/preview-diff.js docs/guide.md committed-staged   # committed vs staged
+```
+
+This opens a full-featured rendered diff in your default browser with syntax highlighting, scroll sync, and a minimap.
+
 ## Contributing
 
 Contributions welcome! This is a hobby project.
 
 ```bash
 # Clone and set up
-git clone https://github.com/your-username/markdown-diff-visualiser.git
+git clone https://github.com/arjun-staticvar/markdown-diff-visualiser.git
 cd markdown-diff-visualiser
 npm install
 

@@ -25,3 +25,10 @@ out/**/*.d.ts
 # Kiro configs (except steering)
 .kiro/specs/
 .kiro/settings/
+
+# AI agent local settings (keep instruction files tracked)
+.claude/settings.local.json
+
+# Scratch files
+test.md
+mockups/

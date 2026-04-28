@@ -5,10 +5,14 @@
  * Uses proxyquire to inject mocks for vscode and all internal modules
  * (gitService, diffParser, diffHighlighter, webviewPanelManager).
  *
+ * The showChanges command now uses runVersionComparison (committed vs unstaged)
+ * which calls findGitRoot and getFileAtVersion (using child_process.execFile
+ * and vscode.workspace.fs.readFile), then diffLib.createTwoFilesPatch, parseDiff,
+ * and highlightDiff.
+ *
  * Requirements covered: 5.1, 5.2, 5.5, 5.6, 6.1, 6.5
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import {
@@ -30,6 +34,12 @@ describe('Extension Controller', function () {
   let highlightDiffStub: sinon.SinonStub;
   let mockPanelManagerInstance: any;
   let createPanelManagerStub: sinon.SinonStub;
+
+  // --- child_process mock ---
+  let execFileStub: sinon.SinonStub;
+
+  // --- diff library mock ---
+  let createTwoFilesPatchStub: sinon.SinonStub;
 
   // --- VS Code mocks ---
   let mockContext: any;
@@ -73,6 +83,12 @@ describe('Extension Controller', function () {
     };
     createPanelManagerStub = sinon.stub().returns(mockPanelManagerInstance);
 
+    // child_process.execFile mock — used by findGitRoot and getFileAtVersion
+    execFileStub = sinon.stub();
+
+    // diff library mock
+    createTwoFilesPatchStub = sinon.stub();
+
     // Track registered commands
     registeredCommands = {};
     commandsMock = {
@@ -95,9 +111,7 @@ describe('Extension Controller', function () {
 
     // Workspace mock
     workspaceMock = {
-      workspaceFolders: [
-        { uri: { fsPath: '/mock/workspace' }, name: 'workspace', index: 0 },
-      ],
+      workspaceFolders: [{ uri: { fsPath: '/mock/workspace' }, name: 'workspace', index: 0 }],
       fs: {
         readFile: sinon.stub().resolves(Buffer.from('# Current Content\n\nSome text.')),
       },
@@ -140,7 +154,7 @@ describe('Extension Controller', function () {
 
     // Load the extension module with all mocks injected
     extensionModule = proxyquire('../extension', {
-      'vscode': vscodeMock,
+      vscode: vscodeMock,
       './gitService': {
         createGitService: createGitServiceStub,
         GitError: class GitError extends Error {
@@ -166,9 +180,92 @@ describe('Extension Controller', function () {
         createPanelManager: createPanelManagerStub,
         '@noCallThru': true,
       },
+      child_process: {
+        execFile: execFileStub,
+        '@noCallThru': true,
+      },
+      diff: {
+        createTwoFilesPatch: createTwoFilesPatchStub,
+        '@noCallThru': true,
+      },
     });
 
     return vscodeMock;
+  }
+
+  /**
+   * Configure mocks for a successful runVersionComparison flow.
+   *
+   * The showChanges command calls runVersionComparison('committed', 'unstaged') which:
+   * 1. findGitRoot: execFile('git', ['rev-parse', '--show-toplevel'], ...)
+   * 2. getFileAtVersion('committed'): execFile('git', ['show', 'HEAD:<path>'], ...)
+   * 3. getFileAtVersion('unstaged'): vscode.workspace.fs.readFile(...)
+   * 4. diffLib.createTwoFilesPatch(...)
+   * 5. parseDiff(...)
+   * 6. highlightDiff(...)
+   * 7. panelManager.showPreview(...)
+   */
+  function setupSuccessfulVersionComparison(options?: {
+    committedContent?: string;
+    unstagedContent?: string;
+    filePath?: string;
+  }) {
+    const committedContent = options?.committedContent ?? '# Old Content';
+    const unstagedContent = options?.unstagedContent ?? '# Current Content\n\nSome text.';
+    const filePath = options?.filePath ?? '/mock/workspace/README.md';
+
+    // Mock execFile for findGitRoot and getFileAtVersion('committed')
+    execFileStub.callsFake(
+      (_cmd: string, args: string[], _opts: any, callback: Function) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
+          // findGitRoot
+          callback(null, '/mock/workspace\n', '');
+        } else if (args[0] === 'show' && typeof args[1] === 'string' && args[1].startsWith('HEAD:')) {
+          // getFileAtVersion('committed')
+          callback(null, committedContent, '');
+        } else {
+          callback(null, '', '');
+        }
+      },
+    );
+
+    // Mock workspace.fs.readFile for getFileAtVersion('unstaged')
+    workspaceMock.fs.readFile.resolves(Buffer.from(unstagedContent));
+
+    // Mock diff library
+    const rawPatch =
+      `diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1,3 @@\n-# Old Content\n+# Current Content\n+\n+Some text.\n`;
+    createTwoFilesPatchStub.returns(rawPatch);
+
+    // Mock parseDiff
+    const mockHunks = [
+      {
+        oldStart: 1,
+        oldLines: 1,
+        newStart: 1,
+        newLines: 3,
+        changes: [
+          { type: 'del', content: '# Old Content', oldLineNumber: 1 },
+          { type: 'add', content: '# Current Content', newLineNumber: 1 },
+          { type: 'add', content: '', newLineNumber: 2 },
+          { type: 'add', content: 'Some text.', newLineNumber: 3 },
+        ],
+      },
+    ];
+    parseDiffStub.returns([
+      {
+        oldFilePath: 'README.md',
+        newFilePath: 'README.md',
+        hunks: mockHunks,
+        status: 'modified',
+      },
+    ]);
+
+    // Mock highlightDiff
+    highlightDiffStub.returns({
+      oldHtml: '<p>old highlighted</p>',
+      newHtml: '<p>new highlighted</p>',
+    });
   }
 
   afterEach(function () {
@@ -182,7 +279,7 @@ describe('Extension Controller', function () {
 
       expect(commandsMock.registerCommand.calledOnce).to.be.true;
       expect(commandsMock.registerCommand.firstCall.args[0]).to.equal(
-        'markdownDiffVisualiser.showChanges'
+        'markdownDiffVisualiser.showChanges',
       );
     });
 
@@ -213,9 +310,7 @@ describe('Extension Controller', function () {
       await handler();
 
       expect(mockWindow.showInformationMessage.calledOnce).to.be.true;
-      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include(
-        'markdown'
-      );
+      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('markdown');
     });
   });
 
@@ -230,14 +325,12 @@ describe('Extension Controller', function () {
       await handler();
 
       expect(mockWindow.showInformationMessage.calledOnce).to.be.true;
-      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include(
-        'No active editor'
-      );
+      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('No active editor');
     });
   });
 
   describe('showChanges command - markdown file with no changes', function () {
-    it('should show info message when no changes are found (empty diff)', async function () {
+    it('should show info message when no changes are found (identical content)', async function () {
       const vscodeMock = loadExtensionModule();
       vscodeMock.window.activeTextEditor = {
         document: {
@@ -246,8 +339,23 @@ describe('Extension Controller', function () {
         },
       };
 
-      // Git returns empty diff
-      mockGitServiceInstance.getDiff.resolves('');
+      const sameContent = '# Same Content';
+
+      // findGitRoot succeeds
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            callback(null, sameContent, '');
+          } else {
+            callback(null, '', '');
+          }
+        },
+      );
+
+      // Unstaged content is the same as committed
+      workspaceMock.fs.readFile.resolves(Buffer.from(sameContent));
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -255,9 +363,7 @@ describe('Extension Controller', function () {
       await handler();
 
       expect(mockWindow.showInformationMessage.calledOnce).to.be.true;
-      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include(
-        'No changes found'
-      );
+      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('No differences');
     });
 
     it('should show info message when diff parses to empty results', async function () {
@@ -269,8 +375,26 @@ describe('Extension Controller', function () {
         },
       };
 
-      // Git returns some diff text but parser returns empty
-      mockGitServiceInstance.getDiff.resolves('some diff text');
+      // findGitRoot succeeds
+      execFileStub.callsFake(
+        (_cmd: string, args: string[], _opts: any, callback: Function) => {
+          if (args[0] === 'rev-parse') {
+            callback(null, '/mock/workspace\n', '');
+          } else if (args[0] === 'show') {
+            callback(null, '# Old Content', '');
+          } else {
+            callback(null, '', '');
+          }
+        },
+      );
+
+      // Different unstaged content
+      workspaceMock.fs.readFile.resolves(Buffer.from('# New Content'));
+
+      // diff library returns a patch
+      createTwoFilesPatchStub.returns('some patch text');
+
+      // parseDiff returns empty (malformed/unparseable)
       parseDiffStub.returns([]);
 
       extensionModule.activate(mockContext);
@@ -279,9 +403,7 @@ describe('Extension Controller', function () {
       await handler();
 
       expect(mockWindow.showInformationMessage.calledOnce).to.be.true;
-      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include(
-        'No changes found'
-      );
+      expect(mockWindow.showInformationMessage.firstCall.args[0]).to.include('No differences');
     });
   });
 
@@ -295,36 +417,7 @@ describe('Extension Controller', function () {
         },
       };
 
-      const rawDiff = 'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n';
-      const mockHunks = [
-        {
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 1,
-          changes: [
-            { type: 'del', content: 'old', oldLineNumber: 1 },
-            { type: 'add', content: 'new', newLineNumber: 1 },
-          ],
-        },
-      ];
-      const mockDiffResult = {
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: mockHunks,
-        status: 'modified',
-      };
-
-      mockGitServiceInstance.getDiff.resolves(rawDiff);
-      parseDiffStub.returns([mockDiffResult]);
-      reconstructContentStub.returns({
-        oldContent: '# Old Content',
-        newContent: '# Current Content\n\nSome text.',
-      });
-      highlightDiffStub.returns({
-        oldHtml: '<p>old highlighted</p>',
-        newHtml: '<p>new highlighted</p>',
-      });
+      setupSuccessfulVersionComparison();
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -332,7 +425,7 @@ describe('Extension Controller', function () {
       await handler();
 
       // Panel manager should have been created
-      expect(createPanelManagerStub.calledOnce).to.be.true;
+      expect(createPanelManagerStub.called).to.be.true;
 
       // showPreview should have been called with the highlighted content
       expect(mockPanelManagerInstance.showPreview.calledOnce).to.be.true;
@@ -344,7 +437,7 @@ describe('Extension Controller', function () {
       expect(previewData.diffMode).to.equal('unstaged');
     });
 
-    it('should default to unstaged diff mode', async function () {
+    it('should default to committed vs unstaged comparison', async function () {
       const vscodeMock = loadExtensionModule();
       vscodeMock.window.activeTextEditor = {
         document: {
@@ -353,28 +446,33 @@ describe('Extension Controller', function () {
         },
       };
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
-      reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
+      setupSuccessfulVersionComparison();
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
 
       await handler();
 
-      // createGitService should have been called with workspace root
-      expect(createGitServiceStub.calledOnce).to.be.true;
-      expect(createGitServiceStub.firstCall.args[0]).to.equal('/mock/workspace');
+      // execFile should have been called for findGitRoot (rev-parse)
+      const revParseCall = execFileStub.getCalls().find(
+        (c: any) => c.args[1][0] === 'rev-parse',
+      );
+      expect(revParseCall).to.exist;
 
-      // getDiff should have been called with unstaged mode
-      expect(mockGitServiceInstance.getDiff.calledOnce).to.be.true;
-      expect(mockGitServiceInstance.getDiff.firstCall.args[1]).to.equal('unstaged');
+      // execFile should have been called for getFileAtVersion('committed') with HEAD:
+      const showCall = execFileStub.getCalls().find(
+        (c: any) => c.args[1][0] === 'show' && c.args[1][1].startsWith('HEAD:'),
+      );
+      expect(showCall).to.exist;
+
+      // workspace.fs.readFile should have been called for getFileAtVersion('unstaged')
+      expect(workspaceMock.fs.readFile.called).to.be.true;
+
+      // parseDiff should have been called
+      expect(parseDiffStub.calledOnce).to.be.true;
+
+      // highlightDiff should have been called
+      expect(highlightDiffStub.calledOnce).to.be.true;
     });
   });
 
@@ -388,15 +486,7 @@ describe('Extension Controller', function () {
         },
       };
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
-      reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
+      setupSuccessfulVersionComparison();
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -419,15 +509,13 @@ describe('Extension Controller', function () {
         },
       };
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
+      setupSuccessfulVersionComparison();
+
+      // Also set up mocks for the refresh path (runPipeline uses gitService.getDiff)
+      mockGitServiceInstance.getDiff.resolves(
+        'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n',
+      );
       reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -444,109 +532,18 @@ describe('Extension Controller', function () {
       highlightDiffStub.resetHistory();
       mockPanelManagerInstance.showPreview.resetHistory();
 
-      // Simulate file change
+      // Simulate file change — this triggers runPipeline (not runVersionComparison)
       changeHandler();
 
       // Wait for the async pipeline to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // getDiff should have been called again (refresh)
+      // runPipeline uses gitService.getDiff
       expect(mockGitServiceInstance.getDiff.calledOnce).to.be.true;
     });
   });
 
-  describe('diff mode switching via webview messages', function () {
-    it('should handle switchMode message and re-run pipeline with new mode', async function () {
-      const vscodeMock = loadExtensionModule();
-      vscodeMock.window.activeTextEditor = {
-        document: {
-          uri: { fsPath: '/mock/workspace/README.md' },
-          languageId: 'markdown',
-        },
-      };
-
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
-      reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
-
-      extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
-
-      await handler();
-
-      // createPanelManager was called with context and a message handler
-      expect(createPanelManagerStub.calledOnce).to.be.true;
-      const messageHandler = createPanelManagerStub.firstCall.args[1];
-      expect(messageHandler).to.be.a('function');
-
-      // Reset stubs to track the mode switch call
-      mockGitServiceInstance.getDiff.resetHistory();
-      createGitServiceStub.resetHistory();
-      parseDiffStub.resetHistory();
-      highlightDiffStub.resetHistory();
-      mockPanelManagerInstance.showPreview.resetHistory();
-
-      // Simulate switchMode message from webview
-      messageHandler({ type: 'switchMode', payload: { mode: 'staged' } });
-
-      // Wait for the async pipeline to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      // getDiff should have been called with 'staged' mode
-      expect(mockGitServiceInstance.getDiff.calledOnce).to.be.true;
-      expect(mockGitServiceInstance.getDiff.firstCall.args[1]).to.equal('staged');
-    });
-
-    it('should handle switchMode to commit mode with commitSha', async function () {
-      const vscodeMock = loadExtensionModule();
-      vscodeMock.window.activeTextEditor = {
-        document: {
-          uri: { fsPath: '/mock/workspace/README.md' },
-          languageId: 'markdown',
-        },
-      };
-
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
-      reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
-
-      extensionModule.activate(mockContext);
-      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
-
-      await handler();
-
-      const messageHandler = createPanelManagerStub.firstCall.args[1];
-
-      // Reset stubs
-      mockGitServiceInstance.getDiff.resetHistory();
-      createGitServiceStub.resetHistory();
-
-      // Simulate switchMode to commit mode
-      messageHandler({
-        type: 'switchMode',
-        payload: { mode: 'commit', commitSha: 'abc123' },
-      });
-
-      // Wait for the async pipeline
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      // createGitService should have been called with the commitSha
-      expect(createGitServiceStub.calledOnce).to.be.true;
-      expect(createGitServiceStub.firstCall.args[1]).to.equal('abc123');
-    });
-
+  describe('webview message handling', function () {
     it('should handle refresh message from webview', async function () {
       const vscodeMock = loadExtensionModule();
       vscodeMock.window.activeTextEditor = {
@@ -556,15 +553,48 @@ describe('Extension Controller', function () {
         },
       };
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
+      setupSuccessfulVersionComparison();
+
+      // Also set up mocks for the refresh path (runPipeline uses gitService.getDiff)
+      mockGitServiceInstance.getDiff.resolves(
+        'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n',
+      );
       reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
+
+      extensionModule.activate(mockContext);
+      const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
+
+      await handler();
+
+      // createPanelManager was called with context and a message handler
+      expect(createPanelManagerStub.called).to.be.true;
+      const messageHandler = createPanelManagerStub.firstCall.args[1];
+      expect(messageHandler).to.be.a('function');
+
+      // Reset stubs
+      mockGitServiceInstance.getDiff.resetHistory();
+      mockPanelManagerInstance.showPreview.resetHistory();
+
+      // Simulate refresh message — this triggers runPipeline
+      messageHandler({ type: 'refresh' });
+
+      // Wait for the async pipeline
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // runPipeline uses gitService.getDiff
+      expect(mockGitServiceInstance.getDiff.calledOnce).to.be.true;
+    });
+
+    it('should handle compareVersions message from webview', async function () {
+      const vscodeMock = loadExtensionModule();
+      vscodeMock.window.activeTextEditor = {
+        document: {
+          uri: { fsPath: '/mock/workspace/README.md' },
+          languageId: 'markdown',
+        },
+      };
+
+      setupSuccessfulVersionComparison();
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -573,18 +603,26 @@ describe('Extension Controller', function () {
 
       const messageHandler = createPanelManagerStub.firstCall.args[1];
 
-      // Reset stubs
-      mockGitServiceInstance.getDiff.resetHistory();
+      // Reset stubs to track the compareVersions call
+      execFileStub.resetHistory();
+      parseDiffStub.resetHistory();
+      highlightDiffStub.resetHistory();
       mockPanelManagerInstance.showPreview.resetHistory();
 
-      // Simulate refresh message
-      messageHandler({ type: 'refresh' });
+      // Re-setup execFile for the second runVersionComparison call
+      setupSuccessfulVersionComparison();
+
+      // Simulate compareVersions message
+      messageHandler({
+        type: 'compareVersions',
+        payload: { leftVersion: 'committed', rightVersion: 'unstaged' },
+      });
 
       // Wait for the async pipeline
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // getDiff should have been called again
-      expect(mockGitServiceInstance.getDiff.calledOnce).to.be.true;
+      // Should have called parseDiff again
+      expect(parseDiffStub.called).to.be.true;
     });
   });
 
@@ -598,15 +636,7 @@ describe('Extension Controller', function () {
         },
       };
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'README.md',
-        newFilePath: 'README.md',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
-      reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
+      setupSuccessfulVersionComparison();
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -633,15 +663,9 @@ describe('Extension Controller', function () {
         },
       };
 
-      mockGitServiceInstance.getDiff.resolves('diff text');
-      parseDiffStub.returns([{
-        oldFilePath: 'docs/guide.markdown',
-        newFilePath: 'docs/guide.markdown',
-        hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, changes: [] }],
-        status: 'modified',
-      }]);
-      reconstructContentStub.returns({ oldContent: 'old', newContent: 'new' });
-      highlightDiffStub.returns({ oldHtml: '<p>old</p>', newHtml: '<p>new</p>' });
+      setupSuccessfulVersionComparison({
+        filePath: '/mock/workspace/docs/guide.markdown',
+      });
 
       extensionModule.activate(mockContext);
       const handler = registeredCommands['markdownDiffVisualiser.showChanges'];
@@ -649,15 +673,12 @@ describe('Extension Controller', function () {
       await handler();
 
       // Should NOT show the "not markdown" info message
-      const infoMessages = mockWindow.showInformationMessage.getCalls()
-        .map((c: any) => c.args[0]);
-      const hasMarkdownWarning = infoMessages.some(
-        (msg: string) => msg.includes('markdown files')
-      );
+      const infoMessages = mockWindow.showInformationMessage.getCalls().map((c: any) => c.args[0]);
+      const hasMarkdownWarning = infoMessages.some((msg: string) => msg.includes('markdown files'));
       expect(hasMarkdownWarning).to.be.false;
 
-      // Should have proceeded to get diff
-      expect(mockGitServiceInstance.getDiff.calledOnce).to.be.true;
+      // Should have proceeded to show preview
+      expect(mockPanelManagerInstance.showPreview.calledOnce).to.be.true;
     });
   });
 });

@@ -18,11 +18,13 @@ import { createRenderer } from '../markdownRenderer';
 /**
  * Arbitrary that generates a simple file name segment (no slashes, no special chars).
  */
-const fileSegmentArb = fc
-  .stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789_-'.split('')), {
+const fileSegmentArb = fc.stringOf(
+  fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789_-'.split('')),
+  {
     minLength: 1,
     maxLength: 12,
-  });
+  },
+);
 
 /**
  * Arbitrary that generates a file extension for images.
@@ -33,34 +35,40 @@ const imageExtArb = fc.constantFrom('.png', '.jpg', '.jpeg', '.gif', '.svg', '.w
  * Arbitrary that generates a relative image path like "img.png", "images/photo.jpg",
  * or "./assets/pic.png".
  */
-const relativeImagePathArb = fc.tuple(
-  fc.constantFrom('', './', '../'),
-  fc.array(fileSegmentArb, { minLength: 0, maxLength: 2 }),
-  fileSegmentArb,
-  imageExtArb
-).map(([prefix, dirs, name, ext]) => {
-  const segments = [...dirs, name + ext];
-  return prefix + segments.join('/');
-});
+const relativeImagePathArb = fc
+  .tuple(
+    fc.constantFrom('', './', '../'),
+    fc.array(fileSegmentArb, { minLength: 0, maxLength: 2 }),
+    fileSegmentArb,
+    imageExtArb,
+  )
+  .map(([prefix, dirs, name, ext]) => {
+    const segments = [...dirs, name + ext];
+    return prefix + segments.join('/');
+  });
 
 /**
  * Arbitrary that generates alt text for images.
  */
 const altTextArb = fc.stringOf(
   fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('')),
-  { minLength: 0, maxLength: 20 }
+  { minLength: 0, maxLength: 20 },
 );
 
 /**
  * Arbitrary that generates a workspace root path (posix-style).
  */
-const basePathArb = fc.tuple(
-  fc.constantFrom('/workspace', '/home/user/projects', '/var/app'),
-  fc.array(fileSegmentArb, { minLength: 0, maxLength: 2 })
-).map(([root, dirs]) => {
-  if (dirs.length === 0) { return root; }
-  return root + '/' + dirs.join('/');
-});
+const basePathArb = fc
+  .tuple(
+    fc.constantFrom('/workspace', '/home/user/projects', '/var/app'),
+    fc.array(fileSegmentArb, { minLength: 0, maxLength: 2 }),
+  )
+  .map(([root, dirs]) => {
+    if (dirs.length === 0) {
+      return root;
+    }
+    return root + '/' + dirs.join('/');
+  });
 
 /**
  * Arbitrary that generates an absolute URL that should NOT be modified.
@@ -69,7 +77,7 @@ const absoluteUrlArb = fc.oneof(
   fc.constant('https://example.com/image.png'),
   fc.constant('http://cdn.test.com/photo.jpg'),
   fc.constant('data:image/png;base64,abc123'),
-  fc.constant('/absolute/path/image.png')
+  fc.constant('/absolute/path/image.png'),
 );
 
 describe('Feature: markdown-diff-visualiser, Property 3: Relative image path resolution', function () {
@@ -79,46 +87,36 @@ describe('Feature: markdown-diff-visualiser, Property 3: Relative image path res
 
   it('should resolve relative image paths against the base path in rendered HTML', function () {
     fc.assert(
-      fc.property(
-        relativeImagePathArb,
-        altTextArb,
-        basePathArb,
-        (imagePath, altText, basePath) => {
-          const markdown = `![${altText}](${imagePath})`;
-          const html = renderer.renderWithBase(markdown, basePath);
+      fc.property(relativeImagePathArb, altTextArb, basePathArb, (imagePath, altText, basePath) => {
+        const markdown = `![${altText}](${imagePath})`;
+        const html = renderer.renderWithBase(markdown, basePath);
 
-          // Compute the expected resolved path
-          const expectedResolved = path.posix.join(basePath, imagePath);
+        // Compute the expected resolved path
+        const expectedResolved = path.posix.join(basePath, imagePath);
 
-          // The rendered HTML should contain an img tag with the resolved src
-          expect(html).to.include(`src="${expectedResolved}"`);
-        }
-      ),
+        // The rendered HTML should contain an img tag with the resolved src
+        expect(html).to.include(`src="${expectedResolved}"`);
+      }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
   it('should NOT modify absolute URLs (https://, http://, data:, /)', function () {
     fc.assert(
-      fc.property(
-        absoluteUrlArb,
-        altTextArb,
-        basePathArb,
-        (absoluteUrl, altText, basePath) => {
-          const markdown = `![${altText}](${absoluteUrl})`;
-          const html = renderer.renderWithBase(markdown, basePath);
+      fc.property(absoluteUrlArb, altTextArb, basePathArb, (absoluteUrl, altText, basePath) => {
+        const markdown = `![${altText}](${absoluteUrl})`;
+        const html = renderer.renderWithBase(markdown, basePath);
 
-          // Absolute URLs should remain unchanged in the rendered HTML
-          expect(html).to.include(`src="${absoluteUrl}"`);
-        }
-      ),
+        // Absolute URLs should remain unchanged in the rendered HTML
+        expect(html).to.include(`src="${absoluteUrl}"`);
+      }),
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 });

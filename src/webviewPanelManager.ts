@@ -4,7 +4,6 @@
  */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { DiffMode } from './gitService';
 
 export interface PanelManager {
@@ -33,7 +32,7 @@ export type MessageCallback = (message: WebviewMessage) => void;
 
 export function createPanelManager(
   context: vscode.ExtensionContext,
-  onMessage?: MessageCallback
+  onMessage?: MessageCallback,
 ): PanelManager {
   let panel: vscode.WebviewPanel | undefined;
   const disposables: vscode.Disposable[] = [];
@@ -80,11 +79,9 @@ export function createPanelManager(
       vscode.ViewColumn.One,
       {
         enableScripts: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(context.extensionUri, 'src', 'webview'),
-        ],
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'src', 'webview')],
         retainContextWhenHidden: true,
-      }
+      },
     );
 
     // Handle panel disposal by the user
@@ -94,7 +91,7 @@ export function createPanelManager(
         disposeListeners();
       },
       null,
-      disposables
+      disposables,
     );
 
     // Listen for messages from the webview
@@ -105,7 +102,7 @@ export function createPanelManager(
         }
       },
       null,
-      disposables
+      disposables,
     );
 
     // Listen for theme changes

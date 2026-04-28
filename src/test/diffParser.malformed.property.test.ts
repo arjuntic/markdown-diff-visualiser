@@ -34,7 +34,7 @@ describe('Feature: markdown-diff-visualiser, Property 2: Malformed diff produces
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -51,7 +51,7 @@ describe('Feature: markdown-diff-visualiser, Property 2: Malformed diff produces
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -68,7 +68,7 @@ describe('Feature: markdown-diff-visualiser, Property 2: Malformed diff produces
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 
@@ -76,14 +76,16 @@ describe('Feature: markdown-diff-visualiser, Property 2: Malformed diff produces
     // Generate strings that contain fragments resembling diff syntax but are not valid diffs
     const diffFragmentArb = fc.oneof(
       // Strings starting with diff-like prefixes
-      fc.tuple(
-        fc.constantFrom('diff --git', '---', '+++', '@@', '+', '-', ' ', 'index '),
-        fc.string()
-      ).map(([prefix, rest]) => prefix + rest),
+      fc
+        .tuple(
+          fc.constantFrom('diff --git', '---', '+++', '@@', '+', '-', ' ', 'index '),
+          fc.string(),
+        )
+        .map(([prefix, rest]) => prefix + rest),
       // Random lines joined with newlines (simulating multi-line non-diff text)
       fc.array(fc.string(), { minLength: 1, maxLength: 30 }).map((lines) => lines.join('\n')),
       // Empty and whitespace-only strings
-      fc.constantFrom('', ' ', '\n', '\t', '\r\n', '  \n  \n  ')
+      fc.constantFrom('', ' ', '\n', '\t', '\r\n', '  \n  \n  '),
     );
 
     fc.assert(
@@ -101,7 +103,7 @@ describe('Feature: markdown-diff-visualiser, Property 2: Malformed diff produces
       {
         numRuns: 100,
         verbose: true,
-      }
+      },
     );
   });
 });

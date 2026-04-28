@@ -45,7 +45,9 @@
     });
     toolbar.appendChild(refreshBtn);
 
-    select.addEventListener('change', function () { sendCompareRequest(); });
+    select.addEventListener('change', function () {
+      sendCompareRequest();
+    });
 
     var header = document.querySelector('.panel-header');
     if (header && header.parentNode) {
@@ -61,15 +63,15 @@
       updatePaneLabels(val);
       vscode.postMessage({
         type: 'compareVersions',
-        payload: { leftVersion: parts[0], rightVersion: parts[1] }
+        payload: { leftVersion: parts[0], rightVersion: parts[1] },
       });
     }
   }
 
   var versionNames = {
-    'committed': 'Last Committed',
-    'staged': 'Staged',
-    'unstaged': 'Unstaged'
+    committed: 'Last Committed',
+    staged: 'Staged',
+    unstaged: 'Unstaged',
   };
 
   function updatePaneLabels(compareValue) {
@@ -110,8 +112,12 @@
     if (!oldPane || !newPane) return;
 
     // Remove any previously inserted spacers
-    oldPane.querySelectorAll('.alignment-spacer').forEach(function (s) { s.remove(); });
-    newPane.querySelectorAll('.alignment-spacer').forEach(function (s) { s.remove(); });
+    oldPane.querySelectorAll('.alignment-spacer').forEach(function (s) {
+      s.remove();
+    });
+    newPane.querySelectorAll('.alignment-spacer').forEach(function (s) {
+      s.remove();
+    });
 
     // Get direct children of each pane (the rendered blocks)
     var oldChildren = Array.from(oldPane.children);
@@ -120,8 +126,8 @@
     // Build arrays of {element, isDiff, textSignature} for matching
     function classify(children) {
       return children.map(function (el) {
-        var isDiff = el.classList.contains('diff-added-block') ||
-                     el.classList.contains('diff-removed-block');
+        var isDiff =
+          el.classList.contains('diff-added-block') || el.classList.contains('diff-removed-block');
         // Use a short text signature for matching unchanged blocks
         var text = isDiff ? null : el.textContent.trim().substring(0, 80);
         return { el: el, isDiff: isDiff, text: text };
@@ -160,7 +166,7 @@
             ni++; // skip the spacer we just inserted
           } else {
             // Old pane is ahead — insert spacer before the old element
-            spacer.style.height = (-diff) + 'px';
+            spacer.style.height = -diff + 'px';
             oldItem.el.parentNode.insertBefore(spacer, oldItem.el);
             oldItems.splice(oi, 0, { el: spacer, isDiff: true, text: null });
             oi++; // skip the spacer
@@ -186,12 +192,12 @@
     if (oldH > newH) {
       var pad = document.createElement('div');
       pad.className = 'alignment-spacer';
-      pad.style.height = (oldH - newH) + 'px';
+      pad.style.height = oldH - newH + 'px';
       newPane.appendChild(pad);
     } else if (newH > oldH) {
       var pad2 = document.createElement('div');
       pad2.className = 'alignment-spacer';
-      pad2.style.height = (newH - oldH) + 'px';
+      pad2.style.height = newH - oldH + 'px';
       oldPane.appendChild(pad2);
     }
   }
@@ -306,11 +312,16 @@
 
   function formatStatus(status) {
     switch (status) {
-      case 'added': return 'Added';
-      case 'deleted': return 'Deleted';
-      case 'renamed': return 'Renamed';
-      case 'modified': return 'Modified';
-      default: return status || '';
+      case 'added':
+        return 'Added';
+      case 'deleted':
+        return 'Deleted';
+      case 'renamed':
+        return 'Renamed';
+      case 'modified':
+        return 'Modified';
+      default:
+        return status || '';
     }
   }
 
@@ -318,9 +329,15 @@
     if (!payload || !payload.kind) return;
     document.body.classList.remove('vscode-light', 'vscode-dark', 'vscode-high-contrast');
     switch (payload.kind) {
-      case 'light': document.body.classList.add('vscode-light'); break;
-      case 'dark': document.body.classList.add('vscode-dark'); break;
-      case 'highContrast': document.body.classList.add('vscode-high-contrast'); break;
+      case 'light':
+        document.body.classList.add('vscode-light');
+        break;
+      case 'dark':
+        document.body.classList.add('vscode-dark');
+        break;
+      case 'highContrast':
+        document.body.classList.add('vscode-high-contrast');
+        break;
     }
   }
 
@@ -328,7 +345,9 @@
   function buildScrollbarMinimap(pane, diffClass, type) {
     if (!pane) return;
 
-    var existingMap = pane.parentElement.querySelector('.scrollbar-minimap[data-pane="' + pane.id + '"]');
+    var existingMap = pane.parentElement.querySelector(
+      '.scrollbar-minimap[data-pane="' + pane.id + '"]',
+    );
     if (existingMap) existingMap.remove();
 
     var diffBlocks = pane.querySelectorAll('.' + diffClass);
