@@ -102,11 +102,11 @@ Please ensure `npm run lint` and `npm run format:check` pass before submitting y
 
 ## Reporting Bugs
 
-Found a bug? Please open an issue using the [bug report template](https://github.com/arjun-staticvar/markdown-diff-visualiser/issues/new?template=bug_report.md). Include as much detail as possible — steps to reproduce, expected vs actual behavior, and your environment info.
+Found a bug? Please open an issue using the [bug report template](https://github.com/arjuntic/markdown-diff-visualiser/issues/new?template=bug_report.md). Include as much detail as possible — steps to reproduce, expected vs actual behavior, and your environment info.
 
 ## Suggesting Features
 
-Have an idea? Open an issue using the [feature request template](https://github.com/arjun-staticvar/markdown-diff-visualiser/issues/new?template=feature_request.md).
+Have an idea? Open an issue using the [feature request template](https://github.com/arjuntic/markdown-diff-visualiser/issues/new?template=feature_request.md).
 
 ## License
 

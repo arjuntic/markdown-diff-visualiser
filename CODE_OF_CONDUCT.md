@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported by opening an issue at
-[GitHub Issues](https://github.com/arjun-staticvar/markdown-diff-visualiser/issues).
+[GitHub Issues](https://github.com/arjuntic/markdown-diff-visualiser/issues).
 
 All complaints will be reviewed and investigated promptly and fairly.
 

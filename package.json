@@ -3,7 +3,7 @@
   "displayName": "Markdown Diff Visualiser",
   "description": "Rendered side-by-side preview of markdown file diffs within VS Code",
   "version": "0.0.1",
-  "publisher": "arjun-staticvar",
+  "publisher": "arjuntic",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -24,11 +24,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/arjun-staticvar/markdown-diff-visualiser.git"
+    "url": "https://github.com/arjuntic/markdown-diff-visualiser.git"
   },
-  "homepage": "https://github.com/arjun-staticvar/markdown-diff-visualiser#readme",
+  "homepage": "https://github.com/arjuntic/markdown-diff-visualiser#readme",
   "bugs": {
-    "url": "https://github.com/arjun-staticvar/markdown-diff-visualiser/issues"
+    "url": "https://github.com/arjuntic/markdown-diff-visualiser/issues"
   },
   "galleryBanner": {
     "color": "#1e1e1e",

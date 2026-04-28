@@ -4,8 +4,8 @@
 
 Stop squinting at `+`/`-` lines in git diffs. This VS Code extension shows you a beautiful side-by-side rendered preview of markdown changes, with green/red highlights on exactly what was added or removed.
 
-[![CI](https://github.com/arjun-staticvar/markdown-diff-visualiser/actions/workflows/ci.yml/badge.svg)](https://github.com/arjun-staticvar/markdown-diff-visualiser/actions/workflows/ci.yml)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/arjun-staticvar.markdown-diff-visualiser)](https://marketplace.visualstudio.com/items?itemName=arjun-staticvar.markdown-diff-visualiser)
+[![CI](https://github.com/arjuntic/markdown-diff-visualiser/actions/workflows/ci.yml/badge.svg)](https://github.com/arjuntic/markdown-diff-visualiser/actions/workflows/ci.yml)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/arjuntic.markdown-diff-visualiser)](https://marketplace.visualstudio.com/items?itemName=arjuntic.markdown-diff-visualiser)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## The Problem
@@ -62,7 +62,7 @@ See the extension in action:
 ### From Source
 
 ```bash
-git clone https://github.com/arjun-staticvar/markdown-diff-visualiser.git
+git clone https://github.com/arjuntic/markdown-diff-visualiser.git
 cd markdown-diff-visualiser
 npm install
 npm run bundle
@@ -261,7 +261,7 @@ The repo includes a ready-to-use skill and slash command. To add it to any proje
 **Option A — Clone this repo (skill is included automatically):**
 
 ```bash
-git clone https://github.com/arjun-staticvar/markdown-diff-visualiser.git
+git clone https://github.com/arjuntic/markdown-diff-visualiser.git
 # The .claude/ directory contains the skill — Claude Code picks it up automatically
 ```
 
@@ -352,7 +352,7 @@ Contributions welcome! This is a hobby project.
 
 ```bash
 # Clone and set up
-git clone https://github.com/arjun-staticvar/markdown-diff-visualiser.git
+git clone https://github.com/arjuntic/markdown-diff-visualiser.git
 cd markdown-diff-visualiser
 npm install
 

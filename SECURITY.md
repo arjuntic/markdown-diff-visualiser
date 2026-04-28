@@ -9,7 +9,7 @@
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability in Markdown Diff Visualiser, please report it responsibly using
-[GitHub private vulnerability reporting](https://github.com/arjun-staticvar/markdown-diff-visualiser/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/arjuntic/markdown-diff-visualiser/security/advisories/new).
 
 **Please do not open a public issue for security vulnerabilities.**
 
