@@ -25,3 +25,8 @@ CONTRIBUTING.md
 CODE_OF_CONDUCT.md
 SECURITY.md
 CHANGELOG.md
+.github/**
+eslint.config.mjs
+.prettierrc
+.prettierignore
+package-lock.json
