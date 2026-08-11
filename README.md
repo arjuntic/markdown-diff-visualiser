@@ -1,3 +1,5 @@
+
+
 # Markdown Diff Visualiser
 
 **See what actually changed in your markdown files — rendered, not raw.**
@@ -65,8 +67,7 @@ See the extension in action:
 git clone https://github.com/arjuntic/markdown-diff-visualiser.git
 cd markdown-diff-visualiser
 npm install
-npm run bundle
-npx @vscode/vsce package --allow-missing-repository
+npm run package
 # Then install the generated .vsix
 ```
 
